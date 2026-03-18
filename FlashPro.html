@@ -1,352 +1,534 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flash! Pro</title>
+    <title>Flash! Pro | Premium Flashcard Manager</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
     <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
+    <header id="topbar">
+        <div class="logo">Flash!<span>Pro</span></div>
+        <nav>
+            <button class="nav-btn active" onclick="showView('select')">
+                <i data-lucide="layers"></i> Select
+            </button>
+            <button class="nav-btn" onclick="showView('drill')" id="btn-drill">
+                <i data-lucide="play-circle"></i> Drill
+            </button>
+            <button class="nav-btn" onclick="showView('edit')">
+                <i data-lucide="edit-3"></i> Edit
+            </button>
+            <button class="nav-btn" onclick="showView('tables')">
+                <i data-lucide="table"></i> Tables
+            </button>
+            <button class="nav-btn" onclick="showView('bundles')">
+                <i data-lucide="package"></i> Bundles
+            </button>
+            <button class="nav-btn" onclick="showView('criteria')">
+                <i data-lucide="filter"></i> Criteria
+            </button>
+            <button class="nav-btn" onclick="showView('settings')">
+                <i data-lucide="settings"></i> Settings
+            </button>
+            <button class="nav-btn" onclick="showView('ie')">
+                <i data-lucide="download-cloud"></i> I/O
+            </button>
+        </nav>
+        <div style="flex:1"></div>
+        <div class="row">
+            <button class="btn btn-sm btn-secondary" onclick="exportDeck()" title="Save Deck">
+                <i data-lucide="save"></i>
+            </button>
+            <button class="btn btn-sm btn-secondary" onclick="importDeckFile()" title="Load Deck">
+                <i data-lucide="folder-open"></i>
+            </button>
+            <input type="file" id="load-deck-input" accept=".json" style="display:none" onchange="handleLoadDeck(event)">
+        </div>
+    </header>
 
-    <div id="topbar">
-        <span class="logo">Flash!<span> Pro</span></span>
-        <button class="nav-btn active" onclick="showView('select')">Select</button>
-        <button class="nav-btn" onclick="showView('drill')" id="btn-drill">Drill</button>
-        <button class="nav-btn" onclick="showView('edit')">Edit</button>
-        <button class="nav-btn" onclick="showView('tables')">Tables</button>
-        <button class="nav-btn" onclick="showView('bundles')">Bundles</button>
-        <button class="nav-btn" onclick="showView('criteria')">Criteria</button>
-        <button class="nav-btn" onclick="showView('settings')">Settings</button>
-        <button class="nav-btn" onclick="showView('ie')">Import/Export</button>
-        <span style="flex:1"></span>
-        <button class="btn btn-sm btn-secondary" onclick="exportDeck()">💾 Save Deck</button>
-        <button class="btn btn-sm btn-secondary" onclick="importDeckFile()">📂 Load Deck</button>
-        <input type="file" id="load-deck-input" accept=".json" style="display:none" onchange="handleLoadDeck(event)">
-    </div>
-
-    <div id="deck-bar">
-        <span style="color:#5a6890">Deck:</span>
+    <section id="deck-bar">
+        <span class="flab">Active Deck:</span>
         <select id="deck-select" onchange="switchDeck(this.value)"></select>
-        <button class="btn btn-sm btn-secondary" onclick="newDeck()">+ New</button>
-        <button class="btn btn-sm btn-danger" onclick="deleteDeck()">✕ Delete</button>
-        <span style="flex:1"></span>
-        <span id="deck-stats" style="color:#5a6890"></span>
-    </div>
+        <button class="btn btn-sm btn-secondary" onclick="newDeck()">
+            <i data-lucide="plus"></i> New
+        </button>
+        <button class="btn btn-sm btn-danger" onclick="deleteDeck()">
+            <i data-lucide="trash-2"></i> Delete
+        </button>
+        <div style="flex:1"></div>
+        <div id="deck-stats" class="text-secondary" style="font-size: 0.8em; font-weight: 500;"></div>
+    </section>
 
-    <!-- SELECT VIEW -->
-    <div id="view-select" class="view active">
-        <div class="select-top">
-            <div class="select-panel col">
-                <div class="panel">
-                    <div class="panel-title">Type of Drill (Criteria)</div>
-                    <div class="listbox" id="criteria-list" style="max-height:140px"></div>
-                </div>
-                <div class="panel-title">Criteria Logic</div>
-                <div class="mono" id="criteria-display" style="min-height:52px"></div>
-                <div class="panel-title" style="margin-top:4px">Direction</div>
-                <select id="drill-direction">
-                    <option value="fb">Front → Back</option>
-                    <option value="bf">Back → Front</option>
-                    <option value="both">Both Directions</option>
-                </select>
-            </div>
-            <div class="select-panel col">
-                <div class="panel" style="flex:1;display:flex;flex-direction:column;min-height:0">
-                    <div class="panel-title">Bundles (multi-select)</div>
-                    <div class="listbox" id="bundle-list" style="flex:1"></div>
-                </div>
-            </div>
-            <div class="select-panel col">
-                <div class="panel" style="flex:1;display:flex;flex-direction:column;min-height:0">
-                    <div class="panel-title">Categories (multi-select)</div>
-                    <div class="listbox" id="cat-list" style="flex:1"></div>
-                </div>
-            </div>
-        </div>
-        <div class="select-bottom">
-            <button class="btn btn-secondary" onclick="gatherCards()">⚡ Gather</button>
-            <button class="btn btn-primary" onclick="startDrill()">▶ Drill</button>
-            <label class="flab" style="margin:0">Max:</label>
-            <input type="number" id="max-cards" value="50" style="width:70px">
-            <span id="gathered-count" style="color:#5a6890;font-size:.85em"></span>
-        </div>
-        <div class="col" style="flex:1;min-height:0">
-            <div class="panel-title">Cards Selected <span id="sel-badge" class="badge">0</span></div>
-            <div class="listbox" id="gathered-list" style="flex:1"></div>
-        </div>
-    </div>
-
-    <!-- DRILL VIEW -->
-    <div id="view-drill" class="view">
-        <div class="drill-card-area">
-            <div class="session-dir" id="session-dir"></div>
-            <div class="panel-title" style="text-align:center" id="drill-progress"></div>
-            <div class="card-face front-face" id="drill-front">Select cards and press Drill to begin.</div>
-            <div class="card-face back-face" id="drill-back" style="display:none"></div>
-            <div class="drill-btns" id="drill-btns-flip">
-                <button class="btn btn-secondary" onclick="prevCard()">← Prev</button>
-                <button class="btn btn-primary" onclick="flipCard()">Flip ↕</button>
-                <button class="btn btn-sm btn-secondary" onclick="editCurrentCard()">✏ Edit</button>
-            </div>
-            <div class="drill-btns" id="drill-btns-judge" style="display:none">
-                <button class="btn btn-secondary" onclick="prevCard()">← Prev</button>
-                <button class="btn btn-success" onclick="judgeCard(true)">✓ Right</button>
-                <button class="btn btn-danger" onclick="judgeCard(false)">✗ Wrong</button>
-                <button class="btn btn-sm btn-secondary" onclick="editCurrentCard()">✏ Edit</button>
-            </div>
-            <div class="drill-stats">
-                <div class="stat"><span class="stat-v" id="s-left">–</span><span class="stat-l">Left</span></div>
-                <div class="stat"><span class="stat-v" id="s-right" style="color:#5dba80">–</span><span
-                        class="stat-l">Right</span></div>
-                <div class="stat"><span class="stat-v" id="s-wrong" style="color:#e84560">–</span><span
-                        class="stat-l">Wrong</span></div>
-                <div class="stat"><span class="stat-v" id="s-score">–</span><span class="stat-l">Score</span></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- EDIT VIEW -->
-    <div id="view-edit" class="view">
-        <div class="edit-nav">
-            <button class="btn btn-sm btn-secondary" onclick="editNav('first')">|◀</button>
-            <button class="btn btn-sm btn-secondary" onclick="editNav('prev')">◀</button>
-            <input type="text" id="edit-search" placeholder="Search cards…" oninput="editSearch(this.value)"
-                style="width:200px">
-            <button class="btn btn-sm btn-secondary" onclick="editNav('next')">▶</button>
-            <button class="btn btn-sm btn-secondary" onclick="editNav('last')">▶|</button>
-            <span id="edit-pos" style="color:#5a6890;font-size:.8em;margin-left:6px"></span>
-            <span style="flex:1"></span>
-            <button class="btn btn-sm btn-secondary" onclick="addNewCard()">+ New Card</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteCurrentCard()">✕ Delete</button>
-            <button class="btn btn-sm btn-success" onclick="saveCurrentCard()">💾 Save</button>
-        </div>
-        <div class="edit-main">
-            <div class="col">
-                <div class="flab">Front</div>
-                <textarea id="edit-front" rows="5"></textarea>
-                <div class="flab">Back</div>
-                <textarea id="edit-back" rows="5"></textarea>
-                <div class="grid2">
-                    <div class="col">
-                        <div class="flab">Category</div>
-                        <select id="edit-cat"></select>
+    <main id="content">
+        <!-- SELECT VIEW -->
+        <div id="view-select" class="view active">
+            <div class="select-top">
+                <div class="col">
+                    <div class="panel">
+                        <div class="panel-title">Session Logic</div>
+                        <div class="listbox" id="criteria-list" style="height:160px"></div>
                     </div>
-                    <div class="col">
-                        <div class="flab">Frequency</div>
-                        <input type="number" id="edit-freq" value="0">
+                    <div class="panel">
+                        <div class="panel-title">Logic Details</div>
+                        <div class="mono" id="criteria-display" style="height:60px; overflow:auto;"></div>
+                    </div>
+                    <div class="panel col">
+                        <div class="panel-title">Mode</div>
+                        <select id="drill-direction">
+                            <option value="fb">Front → Back</option>
+                            <option value="bf">Back → Front</option>
+                            <option value="both">Synchronized (Both)</option>
+                        </select>
                     </div>
                 </div>
-                <div class="row">
-                    <button class="btn btn-sm btn-danger" onclick="clearHistory('card')">Clear Card History</button>
-                    <button class="btn btn-sm btn-danger" onclick="clearHistory('all')">Clear All History</button>
-                </div>
-            </div>
-            <div class="col" style="overflow:auto">
-                <div class="flab">Front→Back Metrics</div>
-                <div class="metrics-box" id="metrics-fb"></div>
-                <div class="flab" style="margin-top:8px">Back→Front Metrics</div>
-                <div class="metrics-box" id="metrics-bf"></div>
-                <div class="flab" style="margin-top:8px">Bundles</div>
-                <div id="edit-bundles"
-                    style="display:flex;flex-wrap:wrap;gap:4px;padding:6px;background:#0e1120;border:1px solid #2a3050;border-radius:4px;min-height:32px">
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- TABLES VIEW -->
-    <div id="view-tables" class="view">
-        <div class="row" style="flex-shrink:0;margin-bottom:10px">
-            <select id="table-select" onchange="renderTable(this.value)" style="width:160px">
-                <option value="cards">Cards</option>
-                <option value="categories">Categories</option>
-                <option value="criteria">Criteria</option>
-                <option value="bundles">Bundles</option>
-            </select>
-            <button class="btn btn-sm btn-secondary" onclick="addTableRow()">+ Add Row</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteTableRow()">✕ Delete Selected</button>
-            <span style="flex:1"></span>
-            <input type="text" id="table-search" placeholder="Filter…"
-                oninput="renderTable(document.getElementById('table-select').value)" style="width:180px">
-        </div>
-        <div class="table-wrap">
-            <table id="main-table">
-                <thead id="table-head"></thead>
-                <tbody id="table-body"></tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- BUNDLES VIEW -->
-    <div id="view-bundles" class="view">
-        <div class="row" style="flex-shrink:0;margin-bottom:8px">
-            <input type="text" id="bundle-card-search" placeholder="Search cards…" oninput="renderBundleView()"
-                style="width:220px">
-            <span style="flex:1"></span>
-            <input type="text" id="new-bundle-name" placeholder="New bundle name…" style="width:200px">
-            <button class="btn btn-sm btn-secondary" onclick="createBundle()">+ Create Bundle</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteBundle()">✕ Delete Bundle</button>
-        </div>
-        <div class="bundles-grid" style="flex:1;min-height:0">
-            <div class="col" style="min-height:0">
-                <div class="panel-title">All Cards</div>
-                <div class="listbox" id="bv-cards" style="flex:1"></div>
-            </div>
-            <div class="bundle-arrows">
-                <button class="btn btn-primary" title="Add to bundle" onclick="addToBundle()">→</button>
-                <button class="btn btn-danger" title="Remove from bundle" onclick="removeFromBundle()">←</button>
-            </div>
-            <div class="col" style="min-height:0">
-                <div class="panel-title">Bundle <select id="bv-bundle-select" onchange="renderBundleView()"
-                        style="width:auto;display:inline-block;padding:2px 6px;font-size:.8em"></select></div>
-                <div class="listbox" id="bv-bundle-cards" style="flex:1"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- CRITERIA VIEW -->
-    <div id="view-criteria" class="view">
-        <h2>Criteria Manager</h2>
-        <div class="row" style="flex-shrink:0;margin-bottom:10px">
-            <button class="btn btn-secondary" onclick="newCriteria()">+ New</button>
-            <button class="btn btn-danger btn-sm" onclick="deleteCriteria()">✕ Delete</button>
-        </div>
-        <div class="grid2" style="flex:1;align-items:start">
-            <div class="col">
-                <div class="panel-title">Saved Criteria</div>
-                <div class="listbox" id="criteria-mgr-list" style="max-height:300px"></div>
-            </div>
-            <div class="col">
-                <div class="flab">Name</div>
-                <input type="text" id="crit-name" placeholder="Criteria name…">
-                <div class="flab">Logic Expression</div>
-                <textarea id="crit-logic" rows="5"
-                    placeholder="e.g. ((Now-DateLastRight)>(DateLastRight-DateLastWrong)) AND Frequency >= 10"></textarea>
-                <div style="font-size:.78em;color:#5a6890;line-height:1.5">
-                    Available fields:
-                    <code>Now, Frequency, TimesRight, TimesWrong, TimesRightSinceWrong, DateLastRight, DateLastWrong, DaysRightSinceWrong</code><br>
-                    Operators: <code>AND, OR, +, -, *, /, &gt;, &lt;, &gt;=, &lt;=, =, !=</code>
-                </div>
-                <div class="row">
-                    <button class="btn btn-success" onclick="saveCriteria()">💾 Save</button>
-                    <button class="btn btn-secondary btn-sm" onclick="testCriteria()">🧪 Test on deck</button>
-                    <span id="crit-test-result" style="font-size:.82em;color:#5dba80"></span>
-                </div>
-            </div>
-        </div>
-        <div class="sep"></div>
-        <div style="font-size:.8em;color:#5a6890">
-            <strong style="color:#7b9ef0">Examples:</strong><br>
-            All cards: <code>(leave blank)</code><br>
-            Never studied: <code>TimesRight = 0 AND TimesWrong = 0</code><br>
-            Needs review: <code>TimesRightSinceWrong &lt; 3</code><br>
-            Elapsed time: <code>(Now - DateLastRight) &gt; (DateLastRight - DateLastWrong)</code><br>
-            High frequency: <code>Frequency &gt;= 10</code>
-        </div>
-    </div>
-
-    <!-- SETTINGS VIEW -->
-    <div id="view-settings" class="view">
-        <h2>Card Display Settings</h2>
-        <div class="col">
-            <div class="panel">
-                <div class="panel-title">Font Size</div>
-                <input type="range" id="font-size" min="12" max="36" value="22" oninput="updateFontSize(this.value)"
-                    style="width:200px">
-                <span id="font-size-label" style="font-size:.8em;color:#5a6890">22px</span>
-            </div>
-            <div class="panel col">
-                <div class="panel-title">HTML HEAD Template (CSS/fonts)</div>
-                <textarea id="tmpl-head" rows="4"
-                    placeholder="e.g. &lt;style&gt;body{font-family:'SBL Hebrew'}&lt;/style&gt;"></textarea>
-            </div>
-            <div class="panel col">
-                <div class="panel-title">Front Template (use {{front}} as placeholder)</div>
-                <textarea id="tmpl-front" rows="4"
-                    placeholder="&lt;div class=&quot;card&quot;&gt;{{front}}&lt;/div&gt;"></textarea>
-            </div>
-            <div class="panel col">
-                <div class="panel-title">Back Template (use {{back}} and {{front}})</div>
-                <textarea id="tmpl-back" rows="4"
-                    placeholder="&lt;div class=&quot;card&quot;&gt;{{back}}&lt;/div&gt;"></textarea>
-            </div>
-            <div class="row">
-                <button class="btn btn-success" onclick="saveSettings()">💾 Save Settings</button>
-                <button class="btn btn-secondary" onclick="resetSettings()">↺ Reset to Defaults</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- IMPORT/EXPORT VIEW -->
-    <div id="view-ie" class="view">
-        <h2>Import / Export</h2>
-        <div class="ie-grid">
-            <div class="panel col">
-                <div class="panel-title">Export Cards</div>
-                <div class="flab">Format</div>
-                <select id="export-format">
-                    <option value="tsv">TSV (Tab-separated)</option>
-                    <option value="csv">CSV</option>
-                    <option value="json">JSON</option>
-                </select>
-                <div class="flab">Include fields</div>
-                <div id="export-fields" style="display:flex;flex-direction:column;gap:4px;font-size:.85em"></div>
-                <div class="flab">Scope</div>
-                <select id="export-scope">
-                    <option value="all">All Cards</option>
-                    <option value="gathered">Last Gathered Set</option>
-                </select>
-                <button class="btn btn-primary" onclick="doExport()">⬇ Export</button>
-                <div class="sep"></div>
-                <div class="panel-title">Create Quiz (HTML)</div>
-                <div style="font-size:.82em;color:#5a6890">Exports the last gathered card set as a standalone HTML quiz
-                    file.</div>
-                <button class="btn btn-secondary" onclick="createQuiz()">📄 Create Quiz HTML</button>
-            </div>
-            <div class="panel col">
-                <div class="panel-title">Import Cards from Text File</div>
-                <div style="font-size:.82em;color:#5a6890;margin-bottom:6px">Paste tab/comma separated data below, then
-                    map columns.</div>
-                <textarea id="import-data" rows="6"
-                    placeholder="Paste TSV/CSV data here (first row = headers)…"></textarea>
-                <button class="btn btn-secondary" onclick="parseImportData()">🔍 Parse</button>
-                <div id="import-mapping" class="col"></div>
-                <button class="btn btn-primary" id="import-btn" style="display:none" onclick="doImport()">⬆ Import
-                    Cards</button>
-                <div class="sep"></div>
-                <div class="panel-title">Batch Find &amp; Replace</div>
-                <div class="grid2">
-                    <div class="col">
-                        <div class="flab">Find</div><input type="text" id="br-find">
-                    </div>
-                    <div class="col">
-                        <div class="flab">Replace</div><input type="text" id="br-replace">
+                <div class="col">
+                    <div class="panel" style="flex:1;display:flex;flex-direction:column;min-height:0">
+                        <div class="panel-title">Select Bundles</div>
+                        <div class="listbox" id="bundle-list" style="flex:1"></div>
                     </div>
                 </div>
-                <div class="row">
-                    <select id="br-field">
-                        <option value="front">Front</option>
-                        <option value="back">Back</option>
-                        <option value="both">Both</option>
+                <div class="col">
+                    <div class="panel" style="flex:1;display:flex;flex-direction:column;min-height:0">
+                        <div class="panel-title">Select Categories</div>
+                        <div class="listbox" id="cat-list" style="flex:1"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="select-bottom">
+                <button class="btn btn-secondary" onclick="gatherCards()">
+                    <i data-lucide="refresh-cw"></i> Gather Cards
+                </button>
+                <button class="btn btn-primary" onclick="startDrill()" style="padding: 10px 30px;">
+                    <i data-lucide="play"></i> Start Session
+                </button>
+                <div class="col" style="gap:2px">
+                    <label class="flab">Session Limit</label>
+                    <input type="number" id="max-cards" value="50" style="width:80px">
+                </div>
+                <span id="gathered-count" class="text-secondary" style="font-size: 0.85em; font-weight: 500;"></span>
+            </div>
+            <div class="col" style="flex:1;min-height:0">
+                <div class="panel-title">Queue Preview <span id="sel-badge" class="badge">0</span></div>
+                <div class="listbox" id="gathered-list" style="flex:1"></div>
+            </div>
+        </div>
+
+        <!-- DRILL VIEW -->
+        <div id="view-drill" class="view">
+            <div class="drill-card-area">
+                <div id="session-dir" class="tag" style="align-self: center;"></div>
+                <div id="drill-progress" class="panel-title" style="text-align:center"></div>
+                
+                <div class="card-face front-face" id="drill-front">
+                    <div class="text-muted">Wait for gather...</div>
+                </div>
+                <div class="card-face back-face" id="drill-back" style="display:none"></div>
+                
+                <div class="drill-btns" id="drill-btns-flip">
+                    <button class="btn btn-secondary" onclick="prevCard()">
+                        <i data-lucide="corner-up-left"></i>
+                    </button>
+                    <button class="btn btn-primary" onclick="flipCard()" style="width: 200px">
+                        FLIP CARD
+                    </button>
+                    <button class="btn btn-secondary" onclick="editCurrentCard()">
+                        <i data-lucide="edit-2"></i>
+                    </button>
+                </div>
+                
+                <div class="drill-btns" id="drill-btns-judge" style="display:none">
+                    <button class="btn btn-secondary" onclick="prevCard()">
+                        <i data-lucide="corner-up-left"></i>
+                    </button>
+                    <button class="btn btn-danger" onclick="judgeCard(false)" style="flex:1">
+                        <i data-lucide="x"></i> INCORRECT
+                    </button>
+                    <button class="btn btn-success" onclick="judgeCard(true)" style="flex:1">
+                        <i data-lucide="check"></i> CORRECT
+                    </button>
+                    <button class="btn btn-secondary" onclick="editCurrentCard()">
+                        <i data-lucide="edit-2"></i>
+                    </button>
+                </div>
+                
+                <div class="drill-stats">
+                    <div class="stat">
+                        <span class="stat-l">Remaining</span>
+                        <span class="stat-v" id="s-left">–</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-l">Success</span>
+                        <span class="stat-v" id="s-right" style="color:var(--success)">–</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-l">Missed</span>
+                        <span class="stat-v" id="s-wrong" style="color:var(--danger)">–</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-l">Accuracy</span>
+                        <span class="stat-v" id="s-score" style="color:var(--secondary)">–</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- EDIT VIEW -->
+        <div id="view-edit" class="view">
+            <div class="row" style="margin-bottom: 20px; gap: 16px;">
+                <div class="row" style="background: var(--bg-panel); padding: 5px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+                    <button class="btn btn-sm btn-secondary" onclick="editNav('first')"><i data-lucide="chevrons-left"></i></button>
+                    <button class="btn btn-sm btn-secondary" onclick="editNav('prev')"><i data-lucide="chevron-left"></i></button>
+                    <span id="edit-pos" style="min-width: 60px; text-align: center; font-variant-numeric: tabular-nums; font-size: 0.85em;"></span>
+                    <button class="btn btn-sm btn-secondary" onclick="editNav('next')"><i data-lucide="chevron-right"></i></button>
+                    <button class="btn btn-sm btn-secondary" onclick="editNav('last')"><i data-lucide="chevrons-right"></i></button>
+                </div>
+                <div style="position: relative; flex: 1;">
+                    <i data-lucide="search" style="position: absolute; left: 12px; top: 50%; translate: 0 -50%; width: 16px; color: var(--text-muted);"></i>
+                    <input type="text" id="edit-search" placeholder="Quick find cards..." oninput="editSearch(this.value)" style="padding-left: 36px;">
+                </div>
+                <button class="btn btn-secondary" onclick="addNewCard()">
+                    <i data-lucide="plus-circle"></i> New Card
+                </button>
+                <button class="btn btn-danger" onclick="deleteCurrentCard()">
+                    <i data-lucide="trash"></i>
+                </button>
+                <button class="btn btn-primary" onclick="saveCurrentCard()">
+                    <i data-lucide="check-circle"></i> Save Changes
+                </button>
+            </div>
+            
+            <div class="grid2" style="flex:1; min-height:0;">
+                <div class="col">
+                    <div class="panel col">
+                        <div class="panel-title">Content Editor</div>
+                        <div class="col">
+                            <label class="flab">Front Side</label>
+                            <textarea id="edit-front" rows="6"></textarea>
+                        </div>
+                        <div class="col">
+                            <label class="flab">Back Side</label>
+                            <textarea id="edit-back" rows="6"></textarea>
+                        </div>
+                        <div class="grid2">
+                            <div class="col">
+                                <label class="flab">Category</label>
+                                <select id="edit-cat"></select>
+                            </div>
+                            <div class="col">
+                                <label class="flab">Relative Frequency</label>
+                                <input type="number" id="edit-freq" value="0">
+                            </div>
+                        </div>
+                        <div class="sep"></div>
+                        <div class="row">
+                            <button class="btn btn-sm btn-danger" onclick="clearHistory('card')">Reset Card Stats</button>
+                            <button class="btn btn-sm btn-secondary" onclick="clearHistory('all')">Reset All Stats</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col" style="overflow:auto">
+                    <div class="panel col">
+                        <div class="panel-title">Analytics & Metadata</div>
+                        <div class="row">
+                            <div class="col" style="flex:1">
+                                <label class="flab">Front → Back</label>
+                                <div class="metrics-box" id="metrics-fb"></div>
+                            </div>
+                            <div class="col" style="flex:1">
+                                <label class="flab">Back → Front</label>
+                                <div class="metrics-box" id="metrics-bf"></div>
+                            </div>
+                        </div>
+                        <div class="col" style="margin-top: 20px;">
+                            <label class="flab">Affiliated Bundles</label>
+                            <div id="edit-bundles" class="panel" style="min-height: 50px; display: flex; flex-wrap: wrap; gap: 8px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABLES VIEW -->
+        <div id="view-tables" class="view">
+            <div class="row" style="margin-bottom: 20px; gap: 12px;">
+                <div class="panel" style="padding: 10px; display: flex; gap: 12px; align-items: center; flex: 1;">
+                    <i data-lucide="database" style="color: var(--secondary); width: 18px;"></i>
+                    <select id="table-select" onchange="renderTable(this.value)" style="width: auto; border:none; background:transparent;">
+                        <option value="cards">Cards Registry</option>
+                        <option value="categories">Category List</option>
+                        <option value="criteria">Logic Rules</option>
+                        <option value="bundles">Bundle Assets</option>
                     </select>
-                    <button class="btn btn-secondary" onclick="doBatchReplace()">Replace All</button>
                 </div>
-                <span id="br-result" style="font-size:.82em;color:#5dba80"></span>
+                <button class="btn btn-secondary" onclick="addTableRow()">
+                    <i data-lucide="plus"></i> Row
+                </button>
+                <button class="btn btn-danger" onclick="deleteTableRow()">
+                    <i data-lucide="minus"></i> Selected
+                </button>
+                <div style="position: relative; width: 250px;">
+                    <i data-lucide="search" style="position: absolute; left: 12px; top: 50%; translate: 0 -50%; width: 16px; color: var(--text-muted);"></i>
+                    <input type="text" id="table-search" placeholder="Filter records..." oninput="renderTable(document.getElementById('table-select').value)" style="padding-left: 36px;">
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table id="main-table">
+                    <thead id="table-head"></thead>
+                    <tbody id="table-body"></tbody>
+                </table>
             </div>
         </div>
-    </div>
 
-    <!-- Modal -->
+        <!-- BUNDLES VIEW -->
+        <div id="view-bundles" class="view">
+            <div class="row" style="margin-bottom: 20px; gap: 16px;">
+                <div style="position: relative; flex: 1;">
+                    <i data-lucide="search" style="position: absolute; left: 12px; top: 50%; translate: 0 -50%; width: 16px; color: var(--text-muted);"></i>
+                    <input type="text" id="bundle-card-search" placeholder="Find cards to group..." oninput="renderBundleView()" style="padding-left: 36px;">
+                </div>
+                <div class="row" style="gap: 8px;">
+                    <input type="text" id="new-bundle-name" placeholder="New group name..." style="width:200px">
+                    <button class="btn btn-primary" onclick="createBundle()">
+                        <i data-lucide="plus-square"></i> Create
+                    </button>
+                    <button class="btn btn-danger" onclick="deleteBundle()">
+                        <i data-lucide="trash"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="grid3" style="flex:1; min-height:0; grid-template-columns: 1fr 60px 1fr;">
+                <div class="col">
+                    <div class="panel col" style="flex:1; min-height:0;">
+                        <div class="panel-title">Available Cards</div>
+                        <div class="listbox" id="bv-cards" style="flex:1"></div>
+                    </div>
+                </div>
+                <div class="col" style="justify-content: center; align-items: center; gap: 12px;">
+                    <button class="btn btn-primary" onclick="addToBundle()"><i data-lucide="arrow-right"></i></button>
+                    <button class="btn btn-danger" onclick="removeFromBundle()"><i data-lucide="arrow-left"></i></button>
+                </div>
+                <div class="col">
+                    <div class="panel col" style="flex:1; min-height:0;">
+                        <div class="panel-title">
+                            Group Content: 
+                            <select id="bv-bundle-select" onchange="renderBundleView()" style="width:auto; display:inline-block; border:none; background:transparent; font-weight:700; color:var(--secondary);"></select>
+                        </div>
+                        <div class="listbox" id="bv-bundle-cards" style="flex:1"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CRITERIA VIEW -->
+        <div id="view-criteria" class="view">
+            <div class="col" style="max-width: 900px; margin: 0 auto; width: 100%;">
+                <header class="row" style="justify-content: space-between; margin-bottom: 30px;">
+                    <h2>Logic Rule Manager</h2>
+                    <div class="row">
+                        <button class="btn btn-secondary" onclick="newCriteria()"><i data-lucide="plus"></i> New Rule</button>
+                        <button class="btn btn-danger" onclick="deleteCriteria()"><i data-lucide="trash"></i></button>
+                    </div>
+                </header>
+                
+                <div class="grid2">
+                    <div class="col">
+                        <div class="panel col">
+                            <div class="panel-title">Stored Rules</div>
+                            <div class="listbox" id="criteria-mgr-list" style="height: 380px;"></div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="panel col">
+                            <div class="panel-title">Rule Definition</div>
+                            <div class="col">
+                                <label class="flab">Internal Name</label>
+                                <input type="text" id="crit-name" placeholder="Friendly name for this rule...">
+                            </div>
+                            <div class="col">
+                                <label class="flab">Predicate Logic (JavaScript Syntax)</label>
+                                <textarea id="crit-logic" rows="8" class="mono" placeholder="e.g. (Now - DateLastRight) > dayMs"></textarea>
+                            </div>
+                            <div class="row" style="justify-content: space-between;">
+                                <button class="btn btn-success" onclick="saveCriteria()">
+                                    <i data-lucide="check-square"></i> Save Rule
+                                </button>
+                                <div class="row">
+                                    <span id="crit-test-result" style="font-weight: 600;"></span>
+                                    <button class="btn btn-secondary btn-sm" onclick="testCriteria()">
+                                        <i data-lucide="zap"></i> Run Test
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="sep"></div>
+                
+                <div class="panel row" style="gap: 30px; align-items: flex-start;">
+                    <div class="col" style="flex: 1;">
+                        <div class="panel-title">Constants</div>
+                        <code style="display:block; padding: 12px; background: var(--bg-input); line-height: 2;">
+                            Now, Frequency, TimesRight, TimesWrong, TimesRightSinceWrong, DateLastRight, DateLastWrong, DaysRightSinceWrong
+                        </code>
+                    </div>
+                    <div class="col" style="flex: 1;">
+                        <div class="panel-title">Operations</div>
+                        <code style="display:block; padding: 12px; background: var(--bg-input); line-height: 2;">
+                            AND, OR, ==, !=, >=, <=, >, <, +, -, *, /
+                        </code>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SETTINGS VIEW -->
+        <div id="view-settings" class="view">
+            <div class="col" style="max-width: 800px; margin: 0 auto; width: 100%;">
+                <header style="margin-bottom: 30px;">
+                    <h2>Session Appearance</h2>
+                    <p class="text-secondary">Customize how your flashcards look during study sessions.</p>
+                </header>
+                
+                <div class="panel col" style="margin-bottom: 24px;">
+                    <div class="panel-title">Typography Scaling</div>
+                    <div class="row" style="gap: 20px;">
+                        <input type="range" id="font-size" min="12" max="48" value="22" oninput="updateFontSize(this.value)" style="flex:1">
+                        <span id="font-size-label" class="badge" style="font-size: 1.2em; padding: 6px 16px;">22px</span>
+                    </div>
+                </div>
+
+                <div class="grid2">
+                    <div class="panel col">
+                        <div class="panel-title">Header Injector</div>
+                        <textarea id="tmpl-head" rows="6" placeholder="Custom CSS or external script tags..."></textarea>
+                    </div>
+                    <div class="panel col">
+                        <div class="panel-title">Structural Templates</div>
+                        <div class="col">
+                            <label class="flab">Front Markup ({{front}})</label>
+                            <textarea id="tmpl-front" rows="3"></textarea>
+                        </div>
+                        <div class="col">
+                            <label class="flab">Back Markup ({{back}})</label>
+                            <textarea id="tmpl-back" rows="3"></textarea>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row" style="margin-top: 30px; justify-content: flex-end;">
+                    <button class="btn btn-secondary" onclick="resetSettings()">Defaults</button>
+                    <button class="btn btn-primary" onclick="saveSettings()" style="padding: 10px 40px;">Apply Configuration</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- IMPORT/EXPORT VIEW -->
+        <div id="view-ie" class="view">
+            <div class="grid2">
+                <div class="panel col">
+                    <h2>Data Dispatch</h2>
+                    <p class="text-secondary" style="margin-bottom: 20px;">Extract your data in various structured formats.</p>
+                    
+                    <div class="panel col" style="background: var(--bg-input);">
+                        <div class="col">
+                            <label class="flab">Output Format</label>
+                            <select id="export-format">
+                                <option value="tsv">TSV (Spreadsheet friendly)</option>
+                                <option value="csv">CSV (Standard)</option>
+                                <option value="json">JSON (Raw Data)</option>
+                            </select>
+                        </div>
+                        <div class="col">
+                            <label class="flab">Schema Selection</label>
+                            <div id="export-fields" class="grid2" style="font-size: 0.85em; background: rgba(0,0,0,0.2); padding: 12px; border-radius: var(--radius-sm);"></div>
+                        </div>
+                        <div class="col">
+                            <label class="flab">Selection Scope</label>
+                            <select id="export-scope">
+                                <option value="all">Full Deck</option>
+                                <option value="gathered">Current Gathered Selection</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" onclick="doExport()" style="margin-top: 20px;">
+                            <i data-lucide="download"></i> Begin Export
+                        </button>
+                    </div>
+                    
+                    <div class="panel col" style="margin-top: 24px;">
+                        <div class="panel-title">Standalone Quiz</div>
+                        <p class="text-secondary" style="font-size: 0.85em;">Generate an portable HTML file containing your gathered set with interactive answers.</p>
+                        <button class="btn btn-secondary" onclick="createQuiz()">
+                            <i data-lucide="external-link"></i> Generate HTML Quiz
+                        </button>
+                    </div>
+                </div>
+
+                <div class="panel col">
+                    <h2>Ingest Records</h2>
+                    <p class="text-secondary" style="margin-bottom: 20px;">Bulk import cards from text or spreadsheets.</p>
+                    
+                    <div class="panel col" style="background: var(--bg-input);">
+                        <label class="flab">Raw Ingest Buffer</label>
+                        <textarea id="import-data" rows="8" placeholder="Paste your TAB or COMMA delimited content here..."></textarea>
+                        <button class="btn btn-secondary" onclick="parseImportData()">
+                            <i data-lucide="search"></i> Validate & Map
+                        </button>
+                        
+                        <div id="import-mapping" class="col" style="margin-top: 15px;"></div>
+                        
+                        <button class="btn btn-primary" id="import-btn" style="display:none; margin-top: 20px;" onclick="doImport()">
+                            <i data-lucide="upload"></i> Finalize Import
+                        </button>
+                    </div>
+                    
+                    <div class="panel col" style="margin-top: 24px;">
+                        <div class="panel-title">Streamlined Refactor</div>
+                        <div class="grid2">
+                            <div class="col"><label class="flab">Match</label><input type="text" id="br-find"></div>
+                            <div class="col"><label class="flab">Replace</label><input type="text" id="br-replace"></div>
+                        </div>
+                        <div class="row" style="margin-top: 12px;">
+                            <select id="br-field" style="width: auto;">
+                                <option value="front">Front Text</option>
+                                <option value="back">Back Text</option>
+                                <option value="both">All Fields</option>
+                            </select>
+                            <button class="btn btn-secondary" onclick="doBatchReplace()">Execute Replace</button>
+                            <span id="br-result" style="font-weight: 600; color: var(--success);"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Overlay -->
     <div class="overlay" id="modal" style="display:none">
         <div class="modal">
-            <h3 id="modal-title"></h3>
-            <div id="modal-body"></div>
-            <div class="modal-btns">
-                <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-                <button class="btn btn-primary" id="modal-ok" onclick="modalOk()">OK</button>
-            </div>
+            <header class="row" style="margin-bottom: 20px;">
+                <h3 id="modal-title">Action Required</h3>
+            </header>
+            <div id="modal-body" style="margin-bottom: 24px;"></div>
+            <footer class="row" style="justify-content: flex-end; gap: 12px;">
+                <button class="btn btn-secondary" onclick="closeModal()">Dismiss</button>
+                <button class="btn btn-primary" id="modal-ok" onclick="modalOk()">Confirm</button>
+            </footer>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>
+      </div>
         </div>
     </div>
 
