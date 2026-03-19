@@ -1,0 +1,12 @@
+.claude/
+*.mdb
+*.doc
+*.zip
+*.pdf
+*.rtf
+*.doc
+Flash! Pro/
+FlashPro2006/
+flashlite/
+node_modules/
+.DS_Store
