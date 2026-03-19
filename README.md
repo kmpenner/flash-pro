@@ -23,6 +23,21 @@
 4.  **Define Session Criteria**: Head to **Criteria** to build custom session filters using the built-in Logic Rule Manager.
 5.  **Start Studying**: Select your criteria and bundles in the **Select** view, then "Gather Cards" and launch your **Session**.
 
+## 📥 Data Import & Formats
+
+**Flash! Pro** makes it easy to bulk import your existing study materials through the **I/O** view.
+
+### 📝 Supported Formats
+- **TSV / CSV**: Copy and paste data directly from spreadsheets (Excel, Google Sheets). The tool automatically detects TAB or COMMA delimiters.
+- **JSON**: To restore an entire deck (including all analytics, categories, and settings), use the `.flashpro.json` file format.
+
+### 🗺️ Column Mapping
+When importing from text/spreadsheets:
+1.  **Paste** your raw data into the ingest buffer.
+2.  Click **Validate & Map** to scan the columns.
+3.  **Link** each column to a card field (e.g., Column 1 → Front, Column 2 → Back).
+4.  Specify a default **Category** if needed, then finalize the import.
+
 ## 💻 Technical Stack
 
 - **Core Logic**: Vanilla JavaScript (ES6+)
