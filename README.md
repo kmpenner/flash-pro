@@ -1,6 +1,8 @@
 # Flash! Pro
 
-**Flash! Pro** is a flashcard management system that combines a modern interface with a JavaScript-driven criteria engine to help you memorize vocabulary, facts, and more.
+**Flash! Pro** is a high-performance, premium flashcard management system designed for deep learning and record management. It combines a sleek, modern interface with a powerful JavaScript-driven criteria engine.
+
+[**🚀 View Live Demo**](https://kmpenner.github.io/flash-pro/)
 
 ## ✨ Key Features
 
@@ -15,7 +17,7 @@
 
 ## 🚀 Getting Started
 
-1.  **Open `FlashPro.html`**: The application is entirely client-side. Simply open the HTML file in any modern web browser.
+1.  **Open the Live App**: Visit the [GitHub Pages demo](https://kmpenner.github.io/flash-pro/) or open `index.html` in any modern web browser.
 2.  **Create/Select a Deck**: Use the header menu to start a new deck or load an existing `.flashpro.json` file.
 3.  **Add Cards**: Populate your deck using the **Edit** view or the **I/O** view for bulk imports.
 4.  **Define Session Criteria**: Head to **Criteria** to build custom session filters using the built-in Logic Rule Manager.
@@ -24,7 +26,7 @@
 ## 💻 Technical Stack
 
 - **Core Logic**: Vanilla JavaScript (ES6+)
-- **Styling**: Modern CSS3 with Glassmorphism aesthetics.
+- **Styling**: Modern CSS3 with a Focus on Glassmorphism aesthetics.
 - **Icons**: [Lucide](https://lucide.dev/)
 - **Data Persistence**: Local Storage + JSON Export support.
 
