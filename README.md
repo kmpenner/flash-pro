@@ -15,6 +15,10 @@
 - **🎨 Custom Templates**: Personalize card styling with custom HTML headers and templates for front/back faces.
 - **🔍 Batch Refactoring**: Advanced find-and-replace tools for bulk editing your collection.
 
+## 📖 Instruction Manual
+
+For a deep dive into every feature, keyboard shortcuts, and the logic engine, check out the [**Manual**](./MANUAL.md).
+
 ## 🚀 Getting Started
 
 1.  **Open the Live App**: Visit the [GitHub Pages demo](https://kmpenner.github.io/flash-pro/) or open `index.html` in any modern web browser.
