@@ -1,8 +1,6 @@
 # Flash! Pro
 
-**Flash! Pro** is a high-performance, premium flashcard management system designed for deep learning and record management. It combines a sleek, modern interface with a powerful JavaScript-driven criteria engine to help you master complex subjects efficiently.
-
-![Flash! Pro UI](./hero-image.png)
+**Flash! Pro** is a flashcard management system that combines a modern interface with a JavaScript-driven criteria engine to help you memorize vocabulary, facts, and more.
 
 ## ✨ Key Features
 
@@ -26,7 +24,7 @@
 ## 💻 Technical Stack
 
 - **Core Logic**: Vanilla JavaScript (ES6+)
-- **Styling**: Modern CSS3 with a Focus on Glassmorphism aesthetics.
+- **Styling**: Modern CSS3 with Glassmorphism aesthetics.
 - **Icons**: [Lucide](https://lucide.dev/)
 - **Data Persistence**: Local Storage + JSON Export support.
 
