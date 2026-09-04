@@ -16,6 +16,9 @@ const State = {
     selCritMgrId: '',
     bvSelCards: new Set(),
     bvSelBundleCards: new Set(),
+    lastSessionMissedIds: [],
+    drillCountdownTimer: null,
+    drillCountdownSec: 0,
 
     get deck() { return this.decks.find(d => d.id === this.curDeckId) || null }
 };
@@ -59,7 +62,7 @@ function mkDeck(name = 'New Deck') {
             { id: Utils.uid(), name: 'All Cards', logic: '' },
             { id: Utils.uid(), name: 'Never Studied', logic: 'TimesRight == 0 && TimesWrong == 0' },
             { id: Utils.uid(), name: 'Needs Review (< 3 right)', logic: 'TimesRightSinceWrong < 3' },
-            { id: Utils.uid(), name: 'Elapsed Time', logic: 'DateLastRight > 0 && (Now - DateLastRight) > (DateLastRight - (DateLastWrong||DateLastRight))' },
+            { id: Utils.uid(), name: 'Elapsed Time (Due)', logic: 'DateLastRight == 0 || (DateLastRight > 0 && (Now - DateLastRight) > (DateLastRight - (DateLastWrong||DateLastRight)))' },
             { id: Utils.uid(), name: 'High Frequency', logic: 'Frequency >= 10' },
         ],
         settings: { fontSize: 28, headTmpl: '', frontTmpl: '', backTmpl: '' },
@@ -142,6 +145,26 @@ const Store = {
 
 function save() { Store.save(State.decks); }
 
+function getSessionLimit() {
+    const el = document.getElementById('max-cards');
+    if (el && el.value) {
+        const v = parseInt(el.value, 10);
+        if (!isNaN(v) && v > 0) return v;
+    }
+    const val = parseInt(localStorage.getItem('flashpro_session_limit') || '10', 10);
+    return isNaN(val) || val <= 0 ? 10 : val;
+}
+function setSessionLimit(val) {
+    const n = parseInt(val, 10);
+    const limit = isNaN(n) || n <= 0 ? 10 : n;
+    localStorage.setItem('flashpro_session_limit', limit);
+    const el1 = document.getElementById('max-cards');
+    if (el1 && parseInt(el1.value, 10) !== limit) el1.value = limit;
+    const el2 = document.getElementById('drill-max-cards');
+    if (el2 && parseInt(el2.value, 10) !== limit) el2.value = limit;
+    gatherCards();
+}
+
         // =====================================================================
         // INIT
         // =====================================================================
@@ -159,6 +182,13 @@ function init() {
     State.curDeckId = Store.currentId();
     if (!State.deck) State.curDeckId = State.decks[0].id;
     Store.setCur(State.curDeckId);
+
+    const savedLimit = getSessionLimit();
+    const elMax = document.getElementById('max-cards');
+    if (elMax) elMax.value = savedLimit;
+    const elDrillMax = document.getElementById('drill-max-cards');
+    if (elDrillMax) elDrillMax.value = savedLimit;
+
     renderDeckBar();
     renderSelectView();
     renderEditCards();
@@ -182,6 +212,7 @@ function init() {
         // NAVIGATION
         // =====================================================================
         function showView(v) {
+            if (v !== 'drill') cancelAutoRestart();
             if (v === 'drill' && !State.drillSession) {
                 if (!State.gatheredCards.length) gatherCards();
                 startDrill();
@@ -316,12 +347,13 @@ function gatherCards() {
     const d = State.deck; if (!d) return;
     const crit = d.criteria.find(c => c.id === State.selCriteriaId);
     const logic = crit ? crit.logic : '';
-    const dir = document.getElementById('drill-direction').value;
+    const dirEl = document.getElementById('drill-direction');
+    const dir = dirEl ? dirEl.value : 'fb';
     const dirs = dir === 'both' ? ['fb', 'bf'] : [dir];
     const bFilter = State.selBundleIds.size > 0;
     const catFilter = State.selCatIds.size > 0;
     let seen = new Set();
-    let result = [];
+    let matched = [];
     for (const card_obj of d.cards) {
         if (bFilter) {
             const inBundle = d.bundles.some(b => State.selBundleIds.has(b.id) && b.cardIds.includes(card_obj.id));
@@ -333,18 +365,52 @@ function gatherCards() {
             if (seen.has(key)) continue;
             if (evaluateCriteria(logic, card_obj, dr)) {
                 seen.add(key);
-                result.push({ ...card_obj, _dir: dr });
+                matched.push({ ...card_obj, _dir: dr });
             }
         }
     }
-    const max = parseInt(document.getElementById('max-cards').value) || result.length;
-    State.gatheredCards = result.slice(0, max);
+
+    // Sort / prioritize matched cards for optimal spaced progression across rounds:
+    // 1. Cards missed in the most recent drill round (immediate reinforcement)
+    // 2. Unstudied cards (never attempted before)
+    // 3. Lowest streak count (timesRightSinceWrong)
+    // 4. Oldest last interaction
+    const recentWrong = new Set(State.lastSessionMissedIds || []);
+    matched.sort((a, b) => {
+        const aRecent = recentWrong.has(a.id) ? 1 : 0;
+        const bRecent = recentWrong.has(b.id) ? 1 : 0;
+        if (aRecent !== bRecent) return bRecent - aRecent;
+
+        const ma = a[a._dir] || {};
+        const mb = b[b._dir] || {};
+
+        const aUnstudied = (ma.timesRight || 0) === 0 && (ma.timesWrong || 0) === 0 ? 1 : 0;
+        const bUnstudied = (mb.timesRight || 0) === 0 && (mb.timesWrong || 0) === 0 ? 1 : 0;
+        const aStreak = ma.timesRightSinceWrong || 0;
+        const bStreak = mb.timesRightSinceWrong || 0;
+
+        if (aUnstudied !== bUnstudied) {
+            if (aUnstudied && bStreak >= 2) return -1;
+            if (bUnstudied && aStreak >= 2) return 1;
+        }
+
+        if (aStreak !== bStreak) return aStreak - bStreak;
+
+        const aLast = ma.dateLastRight || 0;
+        const bLast = mb.dateLastRight || 0;
+        return aLast - bLast;
+    });
+
+    const max = getSessionLimit();
+    State.gatheredCards = matched.slice(0, max);
     renderGatheredList();
-    document.getElementById('gathered-count').textContent = `(${result.length} matched, showing ${State.gatheredCards.length})`;
+    const gc = document.getElementById('gathered-count');
+    if (gc) gc.textContent = `(${matched.length} matched, queueing ${State.gatheredCards.length})`;
 }
 function startDrill() {
     if (!State.gatheredCards.length) gatherCards();
     if (!State.gatheredCards.length) { alert('No cards gathered. Press Gather first.'); return; }
+    cancelAutoRestart();
     State.drillSession = {
         cards: [...State.gatheredCards],
         idx: 0,
@@ -362,6 +428,12 @@ function startDrill() {
         // =====================================================================
 function renderDrillCard() {
     const s = State.drillSession; if (!s) return;
+    cancelAutoRestart();
+    const comp = document.getElementById('drill-completion');
+    if (comp) comp.style.display = 'none';
+    const frontEl = document.getElementById('drill-front');
+    if (frontEl) frontEl.style.display = 'flex';
+
     if (s.idx >= s.cards.length) { endDrill(); return; }
     const c = s.cards[s.idx];
     const total = s.cards.length;
@@ -370,7 +442,7 @@ function renderDrillCard() {
     const d = State.deck;
     const settings = d.settings || {};
     const frontText = c._dir === 'fb' ? c.front : c.back;
-    renderCardFace('drill-front', frontText, settings.frontTmpl || '', settings.headTmpl || '', settings.fontSize || 22, 'front');
+    renderCardFace('drill-front', frontText, settings.frontTmpl || '', settings.headTmpl || '', settings.fontSize || 28, 'front');
     document.getElementById('drill-back').style.display = 'none';
     s.flipped = false;
     document.getElementById('drill-btns-flip').style.display = 'flex';
@@ -449,15 +521,64 @@ function updateDrillStats() {
     document.getElementById('s-wrong').textContent = s.wrong;
     document.getElementById('s-score').textContent = total ? score + '%' : '–';
 }
+function cancelAutoRestart() {
+    if (State.drillCountdownTimer) {
+        clearInterval(State.drillCountdownTimer);
+        State.drillCountdownTimer = null;
+    }
+    State.drillCountdownSec = 0;
+}
+
+function restartDrillRound() {
+    cancelAutoRestart();
+    gatherCards();
+    startDrill();
+}
+
 function endDrill() {
     const s = State.drillSession;
+    cancelAutoRestart();
+
+    // Track missed card IDs in this session to prioritize for next round
+    const missed = (s.history || []).filter(h => !h.right).map(h => h.cardId);
+    State.lastSessionMissedIds = [...new Set(missed)];
+
     const total = s.right + s.wrong;
     const score = total ? Math.round(s.right / total * 100) : 0;
-    document.getElementById('drill-front').textContent = `Session Complete! Score: ${score}% (${s.right} right, ${s.wrong} wrong)`;
-    document.getElementById('drill-back').style.display = 'none';
-    document.getElementById('drill-btns-flip').style.display = 'none';
-    document.getElementById('drill-btns-judge').style.display = 'none';
+    const limit = getSessionLimit();
+
+    const frontEl = document.getElementById('drill-front');
+    if (frontEl) frontEl.style.display = 'none';
+    const backEl = document.getElementById('drill-back');
+    if (backEl) backEl.style.display = 'none';
+    const flipBtns = document.getElementById('drill-btns-flip');
+    if (flipBtns) flipBtns.style.display = 'none';
+    const judgeBtns = document.getElementById('drill-btns-judge');
+    if (judgeBtns) judgeBtns.style.display = 'none';
+
+    const comp = document.getElementById('drill-completion');
+    if (comp) {
+        comp.style.display = 'flex';
+        const scoreEl = document.getElementById('drill-completion-score');
+        if (scoreEl) scoreEl.textContent = `Score: ${score}% (${s.right} correct, ${s.wrong} missed)`;
+        if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+    }
     updateDrillStats();
+
+    State.drillCountdownSec = 3;
+    const cdEl = document.getElementById('drill-completion-countdown');
+    if (cdEl) cdEl.textContent = `Next round of ${limit} cards starting in ${State.drillCountdownSec}s...`;
+
+    State.drillCountdownTimer = setInterval(() => {
+        State.drillCountdownSec--;
+        if (State.drillCountdownSec <= 0) {
+            cancelAutoRestart();
+            restartDrillRound();
+        } else {
+            const el = document.getElementById('drill-completion-countdown');
+            if (el) el.textContent = `Next round of ${limit} cards starting in ${State.drillCountdownSec}s...`;
+        }
+    }, 1000);
 }
 function editCurrentCard() {
     if (!State.drillSession) return;
@@ -834,6 +955,13 @@ function modalOk() { if (State.modalCallback) State.modalCallback(); closeModal(
 document.addEventListener('keydown', e => {
     const tag = document.activeElement.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (State.drillCountdownTimer) {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') {
+            e.preventDefault();
+            restartDrillRound();
+            return;
+        }
+    }
     if (e.key === 'ArrowRight' || e.key === 'Enter') flipCard();
     else if (e.key === 'y' || e.key === 'Y') judgeCard(true);
     else if (e.key === 'n' || e.key === 'N') judgeCard(false);

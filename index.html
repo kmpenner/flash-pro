@@ -110,7 +110,7 @@
                 </button>
                 <div class="col" style="gap:2px">
                     <label class="flab">Session Limit</label>
-                    <input type="number" id="max-cards" value="50" style="width:80px">
+                    <input type="number" id="max-cards" value="10" min="1" max="500" style="width:80px" onchange="setSessionLimit(this.value)">
                 </div>
                 <span id="gathered-count" class="text-secondary" style="font-size: 0.85em; font-weight: 500;"></span>
             </div>
@@ -123,7 +123,13 @@
         <!-- DRILL VIEW -->
         <div id="view-drill" class="view">
             <div class="drill-card-area">
-                <div id="session-dir" class="tag" style="align-self: center;"></div>
+                <div class="row" style="align-self: center; align-items: center; gap: 12px;">
+                    <div id="session-dir" class="tag"></div>
+                    <div class="row" style="gap: 6px; align-items: center;">
+                        <label class="flab" style="font-size: 0.75em; margin: 0;">Cards / Round:</label>
+                        <input type="number" id="drill-max-cards" value="10" min="1" max="500" style="width: 65px; padding: 3px 6px; font-size: 0.85em;" onchange="setSessionLimit(this.value)">
+                    </div>
+                </div>
                 <div id="drill-progress" class="panel-title" style="text-align:center"></div>
                 
                 <div class="card-face front-face" id="drill-front">
@@ -156,6 +162,21 @@
                     <button class="btn btn-secondary" onclick="editCurrentCard()">
                         <i data-lucide="edit-2"></i>
                     </button>
+                </div>
+
+                <div id="drill-completion" class="col" style="display:none; gap:16px; align-items:center; text-align:center; padding: 30px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); width: 100%;">
+                    <h2 id="drill-completion-title" style="color:var(--text-primary); font-size:1.6em;">🎉 Round Complete!</h2>
+                    <div id="drill-completion-score" style="font-size:1.2em; color:var(--text-secondary); font-weight: 500;">Score: 80% (8 right, 2 wrong)</div>
+                    <div id="drill-completion-countdown" style="font-size:1em; color:var(--secondary); font-weight:600;">Next round starting in 3s...</div>
+                    <div class="row" style="gap:12px; margin-top:8px;">
+                        <button class="btn btn-primary" onclick="restartDrillRound()" id="btn-restart-now" style="padding: 10px 24px;">
+                            <i data-lucide="play"></i> Start Next Round Now
+                        </button>
+                        <button class="btn btn-secondary" onclick="cancelAutoRestart(); showView('select')" style="padding: 10px 20px;">
+                            <i data-lucide="layers"></i> Return to Select
+                        </button>
+                    </div>
+                    <span class="text-muted" style="font-size:0.8em;">Press <b>Enter</b> or <b>Space</b> to start immediately</span>
                 </div>
                 
                 <div class="drill-stats">
