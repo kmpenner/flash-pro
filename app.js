@@ -45,8 +45,10 @@ const Utils = {
     cat: (id) => State.deck?.categories.find(c => c.id === id)
 };
 
+const DEFAULT_DATE = new Date('2000-01-01T00:00:00Z').getTime(); // 946684800000
+
 function mkCard(front = '', back = '', categoryId = '', frequency = 0) {
-    const mk = () => ({ timesRight: 0, timesWrong: 0, timesRightSinceWrong: 0, dateLastRight: null, dateLastWrong: null });
+    const mk = () => ({ timesRight: 0, timesWrong: 0, timesRightSinceWrong: 0, dateLastRight: DEFAULT_DATE, dateLastWrong: DEFAULT_DATE });
     return { id: Utils.uid(), front, back, categoryId, frequency, editedDate: Utils.now(), fb: mk(), bf: mk() };
 }
 
@@ -58,11 +60,11 @@ function mkDeck(name = 'New Deck') {
         categories: [{ id: Utils.uid(), name: 'General' }],
         bundles: [],
         criteria: [
-            { id: Utils.uid(), name: 'Spaced Repetition', logic: 'LastRightTime == 0 || (Now - LastRightTime) > (LastRightTime - (LastWrongTime||LastRightTime))' },
+            { id: Utils.uid(), name: 'Spaced Repetition', logic: '(NOW - LastRightTime) > (LastRightTime - LastWrongTime)' },
             { id: Utils.uid(), name: 'All Cards', logic: '' },
             { id: Utils.uid(), name: 'Never Studied', logic: 'TimesRight == 0 && TimesWrong == 0' },
             { id: Utils.uid(), name: 'Needs Review (< 3 right)', logic: 'TimesRightSinceWrong < 3' },
-            { id: Utils.uid(), name: 'Elapsed Time', logic: 'LastRightTime > 0 && (Now - LastRightTime) > (LastRightTime - (LastWrongTime||LastRightTime))' },
+            { id: Utils.uid(), name: 'Elapsed Time', logic: '(NOW - LastRightTime) > (LastRightTime - LastWrongTime)' },
             { id: Utils.uid(), name: 'High Frequency', logic: 'Frequency >= 10' },
         ],
         settings: { fontSize: 28, headTmpl: '', frontTmpl: '', backTmpl: '' },
@@ -189,8 +191,15 @@ function init() {
     const elDrillMax = document.getElementById('drill-max-cards');
     if (elDrillMax) elDrillMax.value = savedLimit;
 
-    if (State.deck && State.deck.criteria.length && !State.selCriteriaId) {
-        State.selCriteriaId = State.deck.criteria[0].id;
+    if (State.deck && State.deck.criteria) {
+        const sr = State.deck.criteria.find(c => c.name === 'Spaced Repetition' || c.name === 'Elapsed Time');
+        if (sr) {
+            sr.name = 'Spaced Repetition';
+            sr.logic = '(NOW - LastRightTime) > (LastRightTime - LastWrongTime)';
+        }
+        if (!State.selCriteriaId && State.deck.criteria.length) {
+            State.selCriteriaId = (sr || State.deck.criteria[0]).id;
+        }
     }
 
     renderDeckBar();
@@ -298,12 +307,12 @@ function handleLoadDeck(e) {
         // =====================================================================
 function evaluateCriteria(logic, card_obj, dir) {
     if (!logic || !logic.trim()) return true;
-    const m = card_obj[dir];
+    const m = card_obj[dir] || {};
     const nowMs = Utils.now();
-    let dlr = m.dateLastRight || 0;
-    let dlw = m.dateLastWrong || 0;
+    let dlr = m.dateLastRight || DEFAULT_DATE;
+    let dlw = m.dateLastWrong || DEFAULT_DATE;
     let drsw = 0;
-    if (dlr > 0 && (dlw === 0 || dlr > dlw)) { drsw = (nowMs - dlr) / Utils.dayMs; }
+    if (dlr !== DEFAULT_DATE && (dlw === DEFAULT_DATE || dlr > dlw)) { drsw = (nowMs - dlr) / Utils.dayMs; }
     const ctx = {
         Now: nowMs, NOW: nowMs, Frequency: card_obj.frequency || 0,
         TimesRight: m.timesRight || 0, TimesWrong: m.timesWrong || 0,
@@ -354,7 +363,7 @@ function gatherCards() {
     const crit = d.criteria.find(c => c.id === State.selCriteriaId);
     const logic = crit ? crit.logic : '';
     const dirEl = document.getElementById('drill-direction');
-    const dir = dirEl ? dirEl.value : 'fb';
+    const dir = (dirEl && dirEl.value) ? dirEl.value : 'fb';
     const dirs = dir === 'both' ? ['fb', 'bf'] : [dir];
     const bFilter = State.selBundleIds.size > 0;
     const catFilter = State.selCatIds.size > 0;
@@ -378,30 +387,21 @@ function gatherCards() {
         }
     }
 
-    // Rank matched cards according to the spaced repetition formula:
-    // (Now - LastRightTime) > (LastRightTime - LastWrongTime)
-    // - Cards missed last time have (LastRightTime - LastWrongTime) < 0, making them urgently due.
-    // - Unstudied cards (LastRightTime == 0) follow in textbook order.
-    // - Reviewed cards are ordered by how overdue they are relative to their interval.
+    // Rank matched cards according to the pure spaced repetition formula:
+    // Overdue = (Now - LastRightTime) - (LastRightTime - LastWrongTime)
+    // - Missed cards (aWrong > aRight) have negative intervals and highest overdue scores (~53 yrs)
+    // - Unstudied cards (default 2000-01-01) have overdue scores of ~26 yrs and preserve textbook order
+    // - Actively reviewed cards are sorted by elapsed overdue duration relative to their interval
     matched.sort((a, b) => {
         const ma = a[a._dir] || {};
         const mb = b[b._dir] || {};
-        const aRight = ma.dateLastRight || 0;
-        const bRight = mb.dateLastRight || 0;
-        const aWrong = ma.dateLastWrong || 0;
-        const bWrong = mb.dateLastWrong || 0;
+        const aRight = ma.dateLastRight || DEFAULT_DATE;
+        const bRight = mb.dateLastRight || DEFAULT_DATE;
+        const aWrong = ma.dateLastWrong || DEFAULT_DATE;
+        const bWrong = mb.dateLastWrong || DEFAULT_DATE;
 
-        const aMissed = aWrong > aRight;
-        const bMissed = bWrong > bRight;
-        if (aMissed !== bMissed) return bMissed ? 1 : -1;
-
-        const aUnstudied = aRight === 0 && aWrong === 0;
-        const bUnstudied = bRight === 0 && bWrong === 0;
-        if (aUnstudied && bUnstudied) return 0;
-        if (aUnstudied !== bUnstudied) return aUnstudied ? -1 : 1;
-
-        const aInterval = aRight - (aWrong || aRight);
-        const bInterval = bRight - (bWrong || bRight);
+        const aInterval = aRight - aWrong;
+        const bInterval = bRight - bWrong;
         const aOverdue = (nowMs - aRight) - aInterval;
         const bOverdue = (nowMs - bRight) - bInterval;
         return bOverdue - aOverdue;
@@ -619,7 +619,7 @@ function renderEditCard() {
     document.getElementById('edit-bundles').innerHTML = cardBundles.length ? cardBundles.map(b => `<span class="tag">${Utils.escH(b.name)}</span>`).join('') : '<span style="color:#5a6890;font-size:.8em">No bundles</span>';
 }
 function renderMetrics(m) {
-    const fmt = v => v ? new Date(v).toLocaleDateString() : '–';
+    const fmt = v => (v && v !== DEFAULT_DATE) ? new Date(v).toLocaleDateString() : '–';
     return [
         ['Times Right', m.timesRight || 0],
         ['Times Wrong', m.timesWrong || 0],
@@ -686,7 +686,7 @@ function deleteCurrentCard() {
 }
 function clearHistory(scope) {
     const d = State.deck; if (!d) return;
-    const mk = () => ({ timesRight: 0, timesWrong: 0, timesRightSinceWrong: 0, dateLastRight: null, dateLastWrong: null });
+    const mk = () => ({ timesRight: 0, timesWrong: 0, timesRightSinceWrong: 0, dateLastRight: DEFAULT_DATE, dateLastWrong: DEFAULT_DATE });
     if (scope === 'card' && State.editCards.length) {
         const c = d.cards.find(x => x.id === State.editCards[State.editIdx].id);
         if (c) { c.fb = mk(); c.bf = mk(); save(); renderEditCard(); }
