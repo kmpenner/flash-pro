@@ -16,7 +16,6 @@ const State = {
     selCritMgrId: '',
     bvSelCards: new Set(),
     bvSelBundleCards: new Set(),
-    lastSessionMissedIds: [],
     drillCountdownTimer: null,
     drillCountdownSec: 0,
 
@@ -59,10 +58,11 @@ function mkDeck(name = 'New Deck') {
         categories: [{ id: Utils.uid(), name: 'General' }],
         bundles: [],
         criteria: [
+            { id: Utils.uid(), name: 'Spaced Repetition', logic: 'LastRightTime == 0 || (Now - LastRightTime) > (LastRightTime - (LastWrongTime||LastRightTime))' },
             { id: Utils.uid(), name: 'All Cards', logic: '' },
             { id: Utils.uid(), name: 'Never Studied', logic: 'TimesRight == 0 && TimesWrong == 0' },
             { id: Utils.uid(), name: 'Needs Review (< 3 right)', logic: 'TimesRightSinceWrong < 3' },
-            { id: Utils.uid(), name: 'Elapsed Time (Due)', logic: 'DateLastRight == 0 || (DateLastRight > 0 && (Now - DateLastRight) > (DateLastRight - (DateLastWrong||DateLastRight)))' },
+            { id: Utils.uid(), name: 'Elapsed Time', logic: 'LastRightTime > 0 && (Now - LastRightTime) > (LastRightTime - (LastWrongTime||LastRightTime))' },
             { id: Utils.uid(), name: 'High Frequency', logic: 'Frequency >= 10' },
         ],
         settings: { fontSize: 28, headTmpl: '', frontTmpl: '', backTmpl: '' },
@@ -189,6 +189,10 @@ function init() {
     const elDrillMax = document.getElementById('drill-max-cards');
     if (elDrillMax) elDrillMax.value = savedLimit;
 
+    if (State.deck && State.deck.criteria.length && !State.selCriteriaId) {
+        State.selCriteriaId = State.deck.criteria[0].id;
+    }
+
     renderDeckBar();
     renderSelectView();
     renderEditCards();
@@ -301,10 +305,12 @@ function evaluateCriteria(logic, card_obj, dir) {
     let drsw = 0;
     if (dlr > 0 && (dlw === 0 || dlr > dlw)) { drsw = (nowMs - dlr) / Utils.dayMs; }
     const ctx = {
-        Now: nowMs, Frequency: card_obj.frequency || 0,
+        Now: nowMs, NOW: nowMs, Frequency: card_obj.frequency || 0,
         TimesRight: m.timesRight || 0, TimesWrong: m.timesWrong || 0,
         TimesRightSinceWrong: m.timesRightSinceWrong || 0,
-        DateLastRight: dlr, DateLastWrong: dlw, DaysRightSinceWrong: drsw,
+        DateLastRight: dlr, DateLastWrong: dlw,
+        LastRightTime: dlr, LastWrongTime: dlw,
+        DaysRightSinceWrong: drsw,
     };
     let expr = logic;
     expr = expr.replace(/([^!<>=])=([^=])/g, '$1==$2');
@@ -354,6 +360,8 @@ function gatherCards() {
     const catFilter = State.selCatIds.size > 0;
     let seen = new Set();
     let matched = [];
+    const nowMs = Utils.now();
+
     for (const card_obj of d.cards) {
         if (bFilter) {
             const inBundle = d.bundles.some(b => State.selBundleIds.has(b.id) && b.cardIds.includes(card_obj.id));
@@ -370,35 +378,33 @@ function gatherCards() {
         }
     }
 
-    // Sort / prioritize matched cards for optimal spaced progression across rounds:
-    // 1. Cards missed in the most recent drill round (immediate reinforcement)
-    // 2. Unstudied cards (never attempted before)
-    // 3. Lowest streak count (timesRightSinceWrong)
-    // 4. Oldest last interaction
-    const recentWrong = new Set(State.lastSessionMissedIds || []);
+    // Rank matched cards according to the spaced repetition formula:
+    // (Now - LastRightTime) > (LastRightTime - LastWrongTime)
+    // - Cards missed last time have (LastRightTime - LastWrongTime) < 0, making them urgently due.
+    // - Unstudied cards (LastRightTime == 0) follow in textbook order.
+    // - Reviewed cards are ordered by how overdue they are relative to their interval.
     matched.sort((a, b) => {
-        const aRecent = recentWrong.has(a.id) ? 1 : 0;
-        const bRecent = recentWrong.has(b.id) ? 1 : 0;
-        if (aRecent !== bRecent) return bRecent - aRecent;
-
         const ma = a[a._dir] || {};
         const mb = b[b._dir] || {};
+        const aRight = ma.dateLastRight || 0;
+        const bRight = mb.dateLastRight || 0;
+        const aWrong = ma.dateLastWrong || 0;
+        const bWrong = mb.dateLastWrong || 0;
 
-        const aUnstudied = (ma.timesRight || 0) === 0 && (ma.timesWrong || 0) === 0 ? 1 : 0;
-        const bUnstudied = (mb.timesRight || 0) === 0 && (mb.timesWrong || 0) === 0 ? 1 : 0;
-        const aStreak = ma.timesRightSinceWrong || 0;
-        const bStreak = mb.timesRightSinceWrong || 0;
+        const aMissed = aWrong > aRight;
+        const bMissed = bWrong > bRight;
+        if (aMissed !== bMissed) return bMissed ? 1 : -1;
 
-        if (aUnstudied !== bUnstudied) {
-            if (aUnstudied && bStreak >= 2) return -1;
-            if (bUnstudied && aStreak >= 2) return 1;
-        }
+        const aUnstudied = aRight === 0 && aWrong === 0;
+        const bUnstudied = bRight === 0 && bWrong === 0;
+        if (aUnstudied && bUnstudied) return 0;
+        if (aUnstudied !== bUnstudied) return aUnstudied ? -1 : 1;
 
-        if (aStreak !== bStreak) return aStreak - bStreak;
-
-        const aLast = ma.dateLastRight || 0;
-        const bLast = mb.dateLastRight || 0;
-        return aLast - bLast;
+        const aInterval = aRight - (aWrong || aRight);
+        const bInterval = bRight - (bWrong || bRight);
+        const aOverdue = (nowMs - aRight) - aInterval;
+        const bOverdue = (nowMs - bRight) - bInterval;
+        return bOverdue - aOverdue;
     });
 
     const max = getSessionLimit();
@@ -538,10 +544,6 @@ function restartDrillRound() {
 function endDrill() {
     const s = State.drillSession;
     cancelAutoRestart();
-
-    // Track missed card IDs in this session to prioritize for next round
-    const missed = (s.history || []).filter(h => !h.right).map(h => h.cardId);
-    State.lastSessionMissedIds = [...new Set(missed)];
 
     const total = s.right + s.wrong;
     const score = total ? Math.round(s.right / total * 100) : 0;
