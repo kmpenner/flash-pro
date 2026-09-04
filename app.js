@@ -112,10 +112,21 @@ function init() {
     gatherCards();
 
     // Check for direct drill URL query parameter (?drill=1 or ?start=1)
+    let isDirectDrill = false;
     try {
         const params = new URLSearchParams(window.location.search);
         if (params.get('drill') === '1' || params.get('start') === '1') {
+            isDirectDrill = true;
             startDrill();
+        }
+    } catch (_) {}
+
+    // Show friendly Quick Start guide on first visit if not drilling directly
+    try {
+        if (!isDirectDrill && !localStorage.getItem('flashpro_seen_guide')) {
+            setTimeout(() => {
+                if (typeof openHelpModal === 'function') openHelpModal('quickstart');
+            }, 300);
         }
     } catch (_) {}
 }

@@ -430,3 +430,111 @@ function resetSettings() {
     d.settings = { fontSize: 22, headTmpl: '', frontTmpl: '', backTmpl: '' };
     save(); renderSettingsView();
 }
+
+// =====================================================================
+// HELP & TUTORIAL MODAL
+// =====================================================================
+
+function renderHelpContent(activeTab) {
+    const tabs = [
+        { id: 'quickstart', label: '🎓 Quick Start' },
+        { id: 'shortcuts', label: '⌨️ Shortcuts' },
+        { id: 'spacedrep', label: '🧠 Spaced Repetition' },
+        { id: 'links', label: '🔗 Direct Links' }
+    ];
+
+    let body = `<div class="help-nav-tabs">` + tabs.map(t => `<button class="help-tab-btn${t.id === activeTab ? ' active' : ''}" onclick="switchHelpTab('${t.id}')">${t.label}</button>`).join('') + `</div>`;
+    
+    if (activeTab === 'quickstart') {
+        body += `
+            <div class="col" style="gap: 10px;">
+                <div class="help-card">
+                    <h4>1. Select Your Lesson</h4>
+                    <p>Choose your chapter from the <b>Active Deck</b> dropdown at the top (e.g. <i>Athenaze Chapter 1</i>). Under <b>Bundles</b>, optionally click <b>Chapter 1α</b> or <b>1β</b> to focus on a specific reading.</p>
+                </div>
+                <div class="help-card">
+                    <h4>2. Start Session</h4>
+                    <p>Click <b style="color:var(--secondary)">Start Session</b>. Cards are studied in manageable rounds of <b>10 cards</b> at a time. You can change this batch size anytime.</p>
+                </div>
+                <div class="help-card">
+                    <h4>3. Flip & Judge Honestly</h4>
+                    <p>Press <kbd>Space</kbd> or <kbd>Enter</kbd> to reveal the answer. If you remembered it, press <kbd>Y</kbd> (Correct). If you missed it or hesitated, press <kbd>N</kbd> (Incorrect).</p>
+                </div>
+                <div class="help-card">
+                    <h4>4. Cognitive Mastery</h4>
+                    <p>Flash! Pro automatically re-queues cards you miss into the next batch so you correct mistakes right away. As you get them right, it spaces them out to lock them into long-term memory!</p>
+                </div>
+            </div>
+        `;
+    } else if (activeTab === 'shortcuts') {
+        body += `
+            <div class="col" style="gap: 10px;">
+                <div class="help-card">
+                    <h4>Study Screen (Drill Mode)</h4>
+                    <ul style="margin: 8px 0 0 18px; padding: 0;">
+                        <li style="margin-bottom: 6px;"><kbd>Space</kbd> or <kbd>Enter</kbd> or <kbd>→</kbd> : <b>Flip Card</b> to reveal English/Greek.</li>
+                        <li style="margin-bottom: 6px;"><kbd>Y</kbd> : Mark <b>CORRECT</b> (progresses in spaced repetition).</li>
+                        <li style="margin-bottom: 6px;"><kbd>N</kbd> : Mark <b>INCORRECT</b> (scheduled for next round review).</li>
+                        <li style="margin-bottom: 6px;"><kbd>←</kbd> (Left Arrow) : <b>Undo</b> last judgment (lossless rollback).</li>
+                        <li style="margin-bottom: 6px;"><kbd>Enter</kbd> or <kbd>Space</kbd> on Round Complete : <b>Start Next Round</b> immediately.</li>
+                    </ul>
+                </div>
+                <div class="help-card">
+                    <h4>Hands on the Keyboard</h4>
+                    <p>You never need to touch the mouse during a study session. Use your thumb on <kbd>Space</kbd> to flip, and fingers on <kbd>Y</kbd>/<kbd>N</kbd> to judge!</p>
+                </div>
+            </div>
+        `;
+    } else if (activeTab === 'spacedrep') {
+        body += `
+            <div class="col" style="gap: 10px;">
+                <div class="help-card">
+                    <h4>Cognitive Spaced Repetition Formula</h4>
+                    <p><code>(NOW - LastRightTime) > (LastRightTime - LastWrongTime)</code></p>
+                    <p style="margin-top: 6px;">Flash! Pro doesn't just shuffle random cards. It schedules reviews based on your personal memory:</p>
+                </div>
+                <div class="help-card">
+                    <h4>🔴 Missed Cards Come First</h4>
+                    <p>Any card marked incorrect has an urgent priority score and resurfaces in the very next 10-card round.</p>
+                </div>
+                <div class="help-card">
+                    <h4>🟡 New Cards Queue Up</h4>
+                    <p>Unstudied cards appear in textbook order so you learn new words as your readings introduce them.</p>
+                </div>
+                <div class="help-card">
+                    <h4>🟢 Mastered Cards Space Out</h4>
+                    <p>Every time you get a card right, the review interval expands (1 day ➔ 2 days ➔ 4 days ➔ weeks), preventing over-studying what you already know.</p>
+                </div>
+            </div>
+        `;
+    } else if (activeTab === 'links') {
+        body += `
+            <div class="col" style="gap: 10px;">
+                <div class="help-card">
+                    <h4>Direct Bookmarkable Links</h4>
+                    <p>Students can bookmark direct URLs to open any chapter or lesson immediately into study mode:</p>
+                    <ul style="margin: 8px 0 0 18px; padding: 0;">
+                        <li style="margin-bottom: 6px;">Chapter 1α: <code>?chapter=1a&drill=1</code></li>
+                        <li style="margin-bottom: 6px;">Chapter 1β: <code>?chapter=1b&drill=1</code></li>
+                        <li style="margin-bottom: 6px;">Chapter 2α: <code>?chapter=2a&drill=1</code></li>
+                        <li style="margin-bottom: 6px;">Chapter 2β: <code>?chapter=2b&drill=1</code></li>
+                        <li style="margin-bottom: 6px;">Custom batch size (15 cards): <code>?chapter=1a&limit=15&drill=1</code></li>
+                    </ul>
+                </div>
+            </div>
+        `;
+    }
+    return body;
+}
+
+function switchHelpTab(newTab) {
+    const bodyEl = document.getElementById('modal-body');
+    if (bodyEl) bodyEl.innerHTML = renderHelpContent(newTab);
+}
+
+function openHelpModal(tab = 'quickstart') {
+    openModal('📖 Flash! Pro Quick Guide', renderHelpContent(tab), () => {
+        localStorage.setItem('flashpro_seen_guide', '1');
+        closeModal();
+    }, 'Start Studying!', 'Close');
+}

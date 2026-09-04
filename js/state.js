@@ -220,15 +220,28 @@ function setSessionLimit(val) {
     if (typeof gatherCards === 'function') gatherCards();
 }
 
-// =====================================================================
-// MODAL HELPERS
-// =====================================================================
-
-function openModal(title, body, cb) {
-    document.getElementById('modal-title').textContent = title;
-    document.getElementById('modal-body').innerHTML = body;
-    document.getElementById('modal').style.display = 'flex';
+function openModal(title, body, cb, okText = 'Confirm', cancelText = 'Dismiss') {
+    const titleEl = document.getElementById('modal-title');
+    if (titleEl) titleEl.textContent = title;
+    const bodyEl = document.getElementById('modal-body');
+    if (bodyEl) bodyEl.innerHTML = body;
+    const okBtn = document.getElementById('modal-ok');
+    if (okBtn) {
+        okBtn.textContent = okText;
+        okBtn.style.display = okText ? 'inline-block' : 'none';
+    }
+    const cancelBtn = document.getElementById('modal-cancel') || (typeof document.querySelector === 'function' ? document.querySelector('#modal footer .btn-secondary') : null);
+    if (cancelBtn) {
+        cancelBtn.textContent = cancelText;
+        cancelBtn.style.display = cancelText ? 'inline-block' : 'none';
+    }
+    const modalEl = document.getElementById('modal');
+    if (modalEl) modalEl.style.display = 'flex';
     State.modalCallback = cb;
 }
-function closeModal() { document.getElementById('modal').style.display = 'none'; State.modalCallback = null; }
+function closeModal() {
+    const modalEl = document.getElementById('modal');
+    if (modalEl) modalEl.style.display = 'none';
+    State.modalCallback = null;
+}
 function modalOk() { if (State.modalCallback) State.modalCallback(); closeModal(); }

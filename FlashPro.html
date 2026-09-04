@@ -43,6 +43,9 @@
         </nav>
         <div style="flex:1"></div>
         <div class="row">
+            <button class="btn btn-sm btn-secondary" onclick="openHelpModal()" title="Help, Tutorial & Shortcuts">
+                <i data-lucide="help-circle"></i> Help
+            </button>
             <button class="btn btn-sm btn-secondary" onclick="exportDeck()" title="Save Deck">
                 <i data-lucide="save"></i>
             </button>
@@ -69,6 +72,25 @@
     <main id="content">
         <!-- SELECT VIEW -->
         <div id="view-select" class="view active">
+            <div class="workflow-step-bar">
+                <div class="workflow-step">
+                    <span class="step-num">1</span>
+                    <span>Choose Chapter / Lesson (Active Deck & Bundles)</span>
+                </div>
+                <span class="workflow-arrow">➔</span>
+                <div class="workflow-step">
+                    <span class="step-num">2</span>
+                    <span>Set Batch Limit (Default 10)</span>
+                </div>
+                <span class="workflow-arrow">➔</span>
+                <div class="workflow-step">
+                    <span class="step-num">3</span>
+                    <span style="font-weight: 600; color: var(--secondary)">Click "Start Session"</span>
+                </div>
+                <div style="margin-left: auto;">
+                    <a href="javascript:void(0)" onclick="openHelpModal('quickstart')" style="font-size:0.85em; color:var(--secondary); text-decoration:underline;">Quick Tutorial</a>
+                </div>
+            </div>
             <div class="select-top">
                 <div class="col">
                     <div class="panel">
@@ -138,30 +160,38 @@
                 <div class="card-face back-face" id="drill-back" style="display:none"></div>
                 
                 <div class="drill-btns" id="drill-btns-flip">
-                    <button class="btn btn-secondary" onclick="prevCard()">
+                    <button class="btn btn-secondary" onclick="prevCard()" title="Undo last card (← Left Arrow)">
                         <i data-lucide="corner-up-left"></i>
                     </button>
-                    <button class="btn btn-primary" onclick="flipCard()" style="width: 200px">
-                        FLIP CARD
+                    <button class="btn btn-primary" onclick="flipCard()" style="width: 220px" title="Reveal card back (Space or Enter)">
+                        FLIP CARD <span class="kbd-badge">[Space]</span>
                     </button>
-                    <button class="btn btn-secondary" onclick="editCurrentCard()">
+                    <button class="btn btn-secondary" onclick="editCurrentCard()" title="Edit this card">
                         <i data-lucide="edit-2"></i>
                     </button>
                 </div>
                 
                 <div class="drill-btns" id="drill-btns-judge" style="display:none">
-                    <button class="btn btn-secondary" onclick="prevCard()">
+                    <button class="btn btn-secondary" onclick="prevCard()" title="Undo last card (← Left Arrow)">
                         <i data-lucide="corner-up-left"></i>
                     </button>
-                    <button class="btn btn-danger" onclick="judgeCard(false)" style="flex:1">
-                        <i data-lucide="x"></i> INCORRECT
+                    <button class="btn btn-danger" onclick="judgeCard(false)" style="flex:1" title="Mark incorrect (N key)">
+                        <i data-lucide="x"></i> INCORRECT <span class="kbd-badge">[N]</span>
                     </button>
-                    <button class="btn btn-success" onclick="judgeCard(true)" style="flex:1">
-                        <i data-lucide="check"></i> CORRECT
+                    <button class="btn btn-success" onclick="judgeCard(true)" style="flex:1" title="Mark correct (Y key)">
+                        <i data-lucide="check"></i> CORRECT <span class="kbd-badge">[Y]</span>
                     </button>
-                    <button class="btn btn-secondary" onclick="editCurrentCard()">
+                    <button class="btn btn-secondary" onclick="editCurrentCard()" title="Edit this card">
                         <i data-lucide="edit-2"></i>
                     </button>
+                </div>
+
+                <div class="drill-shortcuts-bar">
+                    <span><kbd>Space</kbd> / <kbd>Enter</kbd> Flip</span>
+                    <span><kbd>Y</kbd> Correct</span>
+                    <span><kbd>N</kbd> Missed</span>
+                    <span><kbd>←</kbd> Undo</span>
+                    <span class="help-link" onclick="openHelpModal('shortcuts')">Need Help?</span>
                 </div>
 
                 <div id="drill-completion" class="col" style="display:none; gap:16px; align-items:center; text-align:center; padding: 30px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); width: 100%;">
@@ -539,7 +569,7 @@
             </header>
             <div id="modal-body" style="margin-bottom: 24px;"></div>
             <footer class="row" style="justify-content: flex-end; gap: 12px;">
-                <button class="btn btn-secondary" onclick="closeModal()">Dismiss</button>
+                <button class="btn btn-secondary" id="modal-cancel" onclick="closeModal()">Dismiss</button>
                 <button class="btn btn-primary" id="modal-ok" onclick="modalOk()">Confirm</button>
             </footer>
         </div>
