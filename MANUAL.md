@@ -89,6 +89,23 @@ Flash! Pro supports **HTML Injection**:
 
 ---
 
+## 🔄 Cross-Deck Study Synchronization
+When studying curated collections such as the *Athenaze* Book I vocabulary:
+- **Unified History**: Cards share deterministic identifiers (`ath_${ch}_${idx}`) across both individual chapter decks and the comprehensive Book I Master Deck.
+- **Bi-Directional Sync**: Answering or undoing a card in a chapter deck instantly synchronizes its performance metrics (`timesRight`, `timesWrong`, streaks, and timestamps) with the Master Deck (and vice versa).
+- **Spaced Repetition**: Intervals calculated by `(NOW - LastRightTime) > (LastRightTime - LastWrongTime)` remain continuous regardless of whether you drill by chapter or across the whole book.
+- **Lossless Undo**: Undoing a card judgment (using the Left Arrow or Back button) restores the exact pre-answer snapshot without polluting repetition intervals.
+
+---
+
+## 🔒 Security & Trust Model
+Flash! Pro is a zero-backend, client-side application running completely in your browser:
+- **Expression Evaluation**: Criteria logic rules use JavaScript expressions evaluated dynamically in the browser context (`Function()`).
+- **Template Rendering**: Custom card templates (`{{front}}`, `{{back}}`) and head injections are rendered within `srcdoc` iframes.
+- **Trust Warning**: Only import `.flashpro.json` deck files or paste criteria filter rules from trusted sources. Never import untrusted deck files containing arbitrary script injections.
+
+---
+
 ## 💾 Saving & Backups
 All data is stored in your browser's **Local Storage**. 
 -   **Manual Backup**: Click the **Save Deck** icon in the header to download a `.flashpro.json` file. 

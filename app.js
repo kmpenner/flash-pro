@@ -71,23 +71,37 @@ function mkDeck(name = 'New Deck') {
     };
 }
 
+function syncCardAcrossDecks(cardId, dir, metrics) {
+    const curDeck = State.deck;
+    const curCard = curDeck?.cards.find(c => c.id === cardId);
+    for (const otherDeck of State.decks) {
+        if (otherDeck.id === State.curDeckId) continue;
+        const otherCard = otherDeck.cards.find(c => c.id === cardId || (curCard && curDeck.src && otherDeck.src && c.front === curCard.front));
+        if (otherCard) {
+            otherCard[dir] = { ...metrics };
+        }
+    }
+}
+
 function buildAthenazeDeck(ch) {
     const d = mkDeck(`Athenaze Book I — Chapter ${ch.num}: ${ch.title}`);
+    d.src = { kind: 'athenaze', ch: ch.num };
     d.settings.fontSize = 28;
 
     const posSet = [...new Set(ch.cards.map(c => c.pos || 'General'))];
     const catMap = {};
     d.categories = posSet.map(name => {
-        const id = Utils.uid();
+        const id = 'cat_' + name.toLowerCase().replace(/[^a-z0-9]/g, '_');
         catMap[name] = id;
         return { id, name };
     });
 
     const alphaCards = [];
     const betaCards = [];
-    d.cards = ch.cards.map(c => {
+    d.cards = ch.cards.map((c, idx) => {
         const catId = catMap[c.pos || 'General'] || d.categories[0].id;
         const card = mkCard(c.front, c.back, catId);
+        card.id = `ath_${ch.num}_${idx}`;
         card._sub = c.sub;
         if (c.sub === 'α') alphaCards.push(card.id);
         else if (c.sub === 'β') betaCards.push(card.id);
@@ -96,25 +110,26 @@ function buildAthenazeDeck(ch) {
 
     d.bundles = [];
     if (alphaCards.length) {
-        d.bundles.push({ id: Utils.uid(), name: `Chapter ${ch.num}α`, cardIds: alphaCards });
+        d.bundles.push({ id: `bnd_${ch.num}_a`, name: `Chapter ${ch.num}α`, cardIds: alphaCards });
     }
     if (betaCards.length) {
-        d.bundles.push({ id: Utils.uid(), name: `Chapter ${ch.num}β`, cardIds: betaCards });
+        d.bundles.push({ id: `bnd_${ch.num}_b`, name: `Chapter ${ch.num}β`, cardIds: betaCards });
     }
-    d.bundles.push({ id: Utils.uid(), name: `Chapter ${ch.num} (All)`, cardIds: d.cards.map(c => c.id) });
+    d.bundles.push({ id: `bnd_${ch.num}_all`, name: `Chapter ${ch.num} (All)`, cardIds: d.cards.map(c => c.id) });
 
     return d;
 }
 
 function buildAthenazeMasterDeck() {
     const d = mkDeck('Athenaze Book I (Chapters 1–16 Complete)');
+    d.src = { kind: 'athenaze', ch: 'all' };
     d.settings.fontSize = 28;
 
     const allCards = (typeof ATHENAZE_CHAPTERS !== 'undefined' && Array.isArray(ATHENAZE_CHAPTERS)) ? ATHENAZE_CHAPTERS.flatMap(ch => ch.cards) : [];
     const posSet = [...new Set(allCards.map(c => c.pos || 'General'))];
     const catMap = {};
     d.categories = posSet.map(name => {
-        const id = Utils.uid();
+        const id = 'cat_' + name.toLowerCase().replace(/[^a-z0-9]/g, '_');
         catMap[name] = id;
         return { id, name };
     });
@@ -127,19 +142,20 @@ function buildAthenazeMasterDeck() {
             const chCardIds = [];
             const alphaIds = [];
             const betaIds = [];
-            for (const c of ch.cards) {
+            ch.cards.forEach((c, idx) => {
                 const catId = catMap[c.pos || 'General'] || d.categories[0].id;
                 const card = mkCard(c.front, c.back, catId);
+                card.id = `ath_${ch.num}_${idx}`;
                 card._ch = ch.num;
                 card._sub = c.sub;
                 d.cards.push(card);
                 chCardIds.push(card.id);
                 if (c.sub === 'α') alphaIds.push(card.id);
                 else if (c.sub === 'β') betaIds.push(card.id);
-            }
-            if (alphaIds.length) d.bundles.push({ id: Utils.uid(), name: `Ch ${ch.num}α`, cardIds: alphaIds });
-            if (betaIds.length) d.bundles.push({ id: Utils.uid(), name: `Ch ${ch.num}β`, cardIds: betaIds });
-            d.bundles.push({ id: Utils.uid(), name: `Chapter ${ch.num}: ${ch.title}`, cardIds: chCardIds });
+            });
+            if (alphaIds.length) d.bundles.push({ id: `bnd_master_${ch.num}_a`, name: `Ch ${ch.num}α`, cardIds: alphaIds });
+            if (betaIds.length) d.bundles.push({ id: `bnd_master_${ch.num}_b`, name: `Ch ${ch.num}β`, cardIds: betaIds });
+            d.bundles.push({ id: `bnd_master_${ch.num}_all`, name: `Chapter ${ch.num}: ${ch.title}`, cardIds: chCardIds });
         }
     }
 
@@ -164,6 +180,7 @@ function mkAthenaze1aDeck() {
         return buildAthenazeDeck(ATHENAZE_CHAPTERS[0]);
     }
     const d = mkDeck('Athenaze Book I — Chapter 1α (Ο ΔΙΚΑΙΟΠΟΛΙΣ)');
+    d.src = { kind: 'athenaze', ch: 1 };
     d.settings.fontSize = 28;
     return d;
 }
@@ -213,18 +230,40 @@ function init() {
     if (!State.decks.length || isLegacyDefault) {
         State.decks = createAllAthenazeDecks();
         save();
-    } else if (typeof ATHENAZE_CHAPTERS !== 'undefined' && State.decks.length < 16) {
-        // Automatically upgrade existing decks to include all 16 chapters
-        for (const ch of ATHENAZE_CHAPTERS) {
-            const hasCh = State.decks.some(d => d.name.includes(`Chapter ${ch.num}:`) || d.name.includes(`Chapter ${ch.num} `) || d.name.includes(`Chapter ${ch.num}α`));
-            if (!hasCh) {
-                State.decks.push(buildAthenazeDeck(ch));
+    } else {
+        // Tag legacy Athenaze decks with machine metadata if missing
+        for (const d of State.decks) {
+            if (!d.src) {
+                const m = d.name && d.name.match(/Athenaze Book I — Chapter (\d+)/);
+                if (m) d.src = { kind: 'athenaze', ch: parseInt(m[1], 10) };
+                else if (d.name && (d.name.includes('Chapters 1–16') || d.name.includes('Book I (Chapters'))) {
+                    d.src = { kind: 'athenaze', ch: 'all' };
+                }
             }
         }
-        if (!State.decks.some(d => d.name.includes('Complete') || d.name.includes('Chapters 1–16'))) {
-            State.decks.push(buildAthenazeMasterDeck());
+        if (typeof ATHENAZE_CHAPTERS !== 'undefined') {
+            const existingChs = new Set(
+                State.decks
+                    .filter(d => d.src && d.src.kind === 'athenaze')
+                    .map(d => d.src.ch)
+            );
+            if (existingChs.size > 0 && existingChs.size < ATHENAZE_CHAPTERS.length + 1) {
+                let changed = false;
+                for (const ch of ATHENAZE_CHAPTERS) {
+                    if (!existingChs.has(ch.num)) {
+                        State.decks.push(buildAthenazeDeck(ch));
+                        existingChs.add(ch.num);
+                        changed = true;
+                    }
+                }
+                if (!existingChs.has('all')) {
+                    State.decks.push(buildAthenazeMasterDeck());
+                    existingChs.add('all');
+                    changed = true;
+                }
+                if (changed) save();
+            }
         }
-        save();
     }
 
     State.curDeckId = Store.currentId();
@@ -257,7 +296,7 @@ function init() {
             if (m) {
                 const chNum = parseInt(m[1], 10);
                 const subLetter = m[2] ? (m[2].toLowerCase() === 'b' || m[2] === 'β' ? 'β' : 'α') : null;
-                const targetDeck = State.decks.find(d => d.name.includes(`Chapter ${chNum}:`) || d.name.includes(`Chapter ${chNum} `) || d.name.includes(`Chapter ${chNum}α`));
+                const targetDeck = State.decks.find(d => (d.src && d.src.kind === 'athenaze' && d.src.ch === chNum) || d.name.includes(`Chapter ${chNum}:`) || d.name.includes(`Chapter ${chNum} `) || d.name.includes(`Chapter ${chNum}α`));
                 if (targetDeck) {
                     State.curDeckId = targetDeck.id;
                     Store.setCur(targetDeck.id);
@@ -287,14 +326,7 @@ function init() {
         }
     } catch (_) {}
 
-    renderDeckBar();
-    renderSelectView();
-    renderEditCards();
-    renderBundleView();
-    renderCriteriaView();
-    renderSettingsView();
-    renderExportFields();
-    updateDeckStats();
+    renderAll();
     gatherCards();
 
     // Check for direct drill URL query parameter (?drill=1 or ?start=1)
@@ -335,6 +367,17 @@ function init() {
         // =====================================================================
         // DECK BAR
         // =====================================================================
+function renderAll() {
+    renderDeckBar();
+    renderSelectView();
+    renderEditCards();
+    renderBundleView();
+    renderCriteriaView();
+    renderSettingsView();
+    renderExportFields();
+    updateDeckStats();
+}
+
 function renderDeckBar() {
     const sel = document.getElementById('deck-select');
     sel.innerHTML = State.decks.map(d => `<option value="${d.id}"${d.id === State.curDeckId ? ' selected' : ''}>${Utils.escH(d.name)}</option>`).join('');
@@ -344,7 +387,7 @@ function updateDeckStats() {
     if (!d) return;
     document.getElementById('deck-stats').textContent = `${d.cards.length} cards | ${d.bundles.length} bundles | ${d.categories.length} categories`;
 }
-function switchDeck(id) { State.curDeckId = id; Store.setCur(id); State.gatheredCards = []; renderDeckBar(); renderSelectView(); renderEditCards(); renderBundleView(); renderCriteriaView(); renderSettingsView(); updateDeckStats(); }
+function switchDeck(id) { State.curDeckId = id; Store.setCur(id); State.gatheredCards = []; renderAll(); }
 function newDeck() {
     openModal('New Deck', '<input type="text" id="m-name" placeholder="Deck name…" style="width:100%">', () => {
         const name = document.getElementById('m-name').value.trim();
@@ -352,7 +395,7 @@ function newDeck() {
         const d = mkDeck(name);
         State.decks.push(d); save();
         State.curDeckId = d.id; Store.setCur(d.id);
-        renderDeckBar(); renderSelectView(); renderEditCards(); renderBundleView(); renderCriteriaView(); renderSettingsView(); updateDeckStats();
+        renderAll();
     });
     setTimeout(() => document.getElementById('m-name')?.focus(), 50);
 }
@@ -361,7 +404,7 @@ function deleteDeck() {
     if (!confirm(`Delete deck "${State.deck.name}"? This cannot be undone.`)) return;
     State.decks = State.decks.filter(d => d.id !== State.curDeckId); save();
     State.curDeckId = State.decks[0].id; Store.setCur(State.curDeckId);
-    renderDeckBar(); renderSelectView(); renderEditCards(); renderBundleView(); renderCriteriaView(); renderSettingsView(); updateDeckStats();
+    renderAll();
 }
 function exportDeck() {
     const d = State.deck;
@@ -379,7 +422,7 @@ function handleLoadDeck(e) {
             d.id = Utils.uid();
             d.name = (d.name || 'Imported Deck') + ' (imported)';
             State.decks.push(d); save(); State.curDeckId = d.id; Store.setCur(d.id);
-            renderDeckBar(); renderSelectView(); renderEditCards(); renderBundleView(); renderCriteriaView(); renderSettingsView(); updateDeckStats();
+            renderAll();
             alert('Deck loaded: ' + d.name);
         } catch (err) { alert('Error loading deck: ' + err.message); }
     };
@@ -390,7 +433,7 @@ function handleLoadDeck(e) {
         // =====================================================================
         // CRITERIA ENGINE
         // =====================================================================
-function evaluateCriteria(logic, card_obj, dir) {
+function evaluateCriteria(logic, card_obj, dir, throwOnError = false) {
     if (!logic || !logic.trim()) return true;
     const m = card_obj[dir] || {};
     const nowMs = Utils.now();
@@ -412,7 +455,12 @@ function evaluateCriteria(logic, card_obj, dir) {
         expr = expr.replace(new RegExp('\\b' + k + '\\b', 'g'), String(v));
     }
     expr = expr.replace(/\bAND\b/gi, '&&').replace(/\bOR\b/gi, '||');
-    try { return !!Function('"use strict";return(' + expr + ')')(); } catch { return false; }
+    try {
+        return !!Function('"use strict";return(' + expr + ')')();
+    } catch (err) {
+        if (throwOnError) throw err;
+        return false;
+    }
 }
 
         // =====================================================================
@@ -568,9 +616,11 @@ function judgeCard(right) {
     const c = s.cards[s.idx];
     const d = State.deck;
     const realCard = d.cards.find(x => x.id === c.id);
+    let prevMetrics = null;
     if (realCard) {
         const dir = c._dir === 'bf' ? 'bf' : 'fb';
         const m = realCard[dir] = realCard[dir] || { timesRight: 0, timesWrong: 0, timesRightSinceWrong: 0, dateLastRight: null, dateLastWrong: null };
+        prevMetrics = { ...m };
         if (right) {
             m.timesRight++; m.timesRightSinceWrong++; m.dateLastRight = Utils.now();
             s.right++;
@@ -578,9 +628,10 @@ function judgeCard(right) {
             m.timesWrong++; m.timesRightSinceWrong = 0; m.dateLastWrong = Utils.now();
             s.wrong++;
         }
+        syncCardAcrossDecks(realCard.id, dir, m);
         save();
     }
-    s.history.push({ cardId: c.id, dir: c._dir, right });
+    s.history.push({ cardId: c.id, dir: c._dir, right, prevMetrics });
     s.idx++;
     renderDrillCard();
 }
@@ -593,9 +644,16 @@ function prevCard() {
         const rc = d.cards.find(x => x.id === last.cardId);
         if (rc) {
             const dir = last.dir === 'bf' ? 'bf' : 'fb';
-            const m = rc[dir] = rc[dir] || { timesRight: 0, timesWrong: 0, timesRightSinceWrong: 0, dateLastRight: null, dateLastWrong: null };
-            if (last.right) { m.timesRight--; m.timesRightSinceWrong = Math.max(0, m.timesRightSinceWrong - 1); if (m.timesRight < 0) m.timesRight = 0; s.right--; }
-            else { m.timesWrong--; if (m.timesWrong < 0) m.timesWrong = 0; s.wrong--; }
+            if (last.prevMetrics) {
+                rc[dir] = { ...last.prevMetrics };
+            } else {
+                const m = rc[dir] = rc[dir] || { timesRight: 0, timesWrong: 0, timesRightSinceWrong: 0, dateLastRight: null, dateLastWrong: null };
+                if (last.right) { m.timesRight--; m.timesRightSinceWrong = Math.max(0, m.timesRightSinceWrong - 1); if (m.timesRight < 0) m.timesRight = 0; }
+                else { m.timesWrong--; if (m.timesWrong < 0) m.timesWrong = 0; }
+            }
+            if (last.right) s.right = Math.max(0, s.right - 1);
+            else s.wrong = Math.max(0, s.wrong - 1);
+            syncCardAcrossDecks(rc.id, dir, rc[dir]);
             save();
         }
     }
@@ -798,13 +856,18 @@ function renderTable(type) {
     if (q) rows = rows.filter(r => JSON.stringify(r).toLowerCase().includes(q));
     const cols = TABLE_COLS[type];
     document.getElementById('table-head').innerHTML = '<tr><th>#</th>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr>';
-    document.getElementById('table-body').innerHTML = rows.map((r, i) => `<tr onclick="selectTableRow(this,'${r.id}')" data-id="${r.id}"><td>${i + 1}</td>${cols.map(c => `<td><input value="${Utils.escAttr(String(r[c] ?? ''))}" onchange="updateTableCell('${type}','${r.id}','${c}',this.value)"></td>`).join('')}</tr>`).join('') || `<tr><td colspan="${cols.length + 1}" style="text-align:center;color:#3a4060;padding:20px">No data</td></tr>`;
+    document.getElementById('table-body').innerHTML = rows.map((r, i) => `<tr onclick="selectTableRow(this,'${r.id}')" data-id="${r.id}"><td>${i + 1}</td>${cols.map(c => `<td><input ${c === 'id' ? 'readonly style="opacity:0.6;cursor:not-allowed"' : ''} value="${Utils.escAttr(String(r[c] ?? ''))}" onchange="updateTableCell('${type}','${r.id}','${c}',this.value)"></td>`).join('')}</tr>`).join('') || `<tr><td colspan="${cols.length + 1}" style="text-align:center;color:#3a4060;padding:20px">No data</td></tr>`;
 }
 function selectTableRow(tr, id) { State.selectedTableRow = id;[...document.querySelectorAll('#table-body tr')].forEach(r => r.style.background = ''); tr.style.background = 'rgba(255,255,255,0.05)'; }
 function updateTableCell(type, id, col, val) {
+    if (col === 'id') return;
     const d = State.deck; if (!d) return;
     const r = (d[type] || []).find(x => x.id === id); if (!r) return;
-    r[col] = isNaN(val) || val === '' ? val : Number(val);
+    if (col === 'frequency') {
+        r[col] = isNaN(val) || val === '' ? 0 : Number(val);
+    } else {
+        r[col] = val;
+    }
     save();
 }
 function addTableRow() {
@@ -910,8 +973,15 @@ function testCriteria() {
     const d = State.deck; if (!d) return;
     const logic = document.getElementById('crit-logic').value.trim();
     const dir = document.getElementById('drill-direction').value === 'bf' ? 'bf' : 'fb';
-    const matches = d.cards.filter(c => evaluateCriteria(logic, c, dir));
-    document.getElementById('crit-test-result').textContent = `→ ${matches.length} card(s) match`;
+    const resEl = document.getElementById('crit-test-result');
+    try {
+        const matches = d.cards.filter(c => evaluateCriteria(logic, c, dir, true));
+        resEl.style.color = '';
+        resEl.textContent = `→ ${matches.length} card(s) match`;
+    } catch (err) {
+        resEl.style.color = '#ef4444';
+        resEl.textContent = `→ Error: ${err.message}`;
+    }
 }
 
 function renderSettingsView() {
