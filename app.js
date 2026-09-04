@@ -62,8 +62,72 @@ function mkDeck(name = 'New Deck') {
             { id: Utils.uid(), name: 'Elapsed Time', logic: 'DateLastRight > 0 && (Now - DateLastRight) > (DateLastRight - (DateLastWrong||DateLastRight))' },
             { id: Utils.uid(), name: 'High Frequency', logic: 'Frequency >= 10' },
         ],
-        settings: { fontSize: 22, headTmpl: '', frontTmpl: '', backTmpl: '' },
+        settings: { fontSize: 28, headTmpl: '', frontTmpl: '', backTmpl: '' },
     };
+}
+
+function mkAthenaze1aDeck() {
+    const d = mkDeck('Athenaze Book I — Chapter 1α (Ο ΔΙΚΑΙΟΠΟΛΙΣ)');
+    d.settings.fontSize = 28;
+
+    const catVerbs = { id: Utils.uid(), name: 'Verbs' };
+    const catNouns = { id: Utils.uid(), name: 'Nouns' };
+    const catAdjectives = { id: Utils.uid(), name: 'Adjectives' };
+    const catPrep = { id: Utils.uid(), name: 'Prepositional Phrases' };
+    const catAdvPart = { id: Utils.uid(), name: 'Adverbs, Conjunctions & Particles' };
+    const catNames = { id: Utils.uid(), name: 'Proper Names' };
+
+    d.categories = [catVerbs, catNouns, catAdjectives, catPrep, catAdvPart, catNames];
+
+    const rawCards = [
+        // Verbs
+        { front: 'ἐστί(ν)', back: 'he/she/it is', catId: catVerbs.id },
+        { front: 'λέγει', back: 'he/she says; he/she tells; he/she speaks', catId: catVerbs.id },
+        { front: 'οἰκεῖ', back: 'he/she lives; he/she dwells', catId: catVerbs.id },
+        { front: 'πονεῖ', back: 'he/she works', catId: catVerbs.id },
+        { front: 'φιλεῖ', back: 'he/she loves', catId: catVerbs.id },
+        { front: 'χαίρει', back: 'he/she rejoices', catId: catVerbs.id },
+
+        // Nouns
+        { front: 'ὁ ἀγρός', back: 'field', catId: catNouns.id },
+        { front: 'ὁ ἄνθρωπος', back: 'man; human being; person', catId: catNouns.id },
+        { front: 'ὁ αὐτουργός', back: 'farmer', catId: catNouns.id },
+        { front: 'ὁ οἶκος', back: 'house; home; dwelling', catId: catNouns.id },
+        { front: 'ὁ πόνος', back: 'toil, work', catId: catNouns.id },
+        { front: 'ὁ σῖτος', back: 'grain; food', catId: catNouns.id },
+
+        // Adjectives
+        { front: 'καλός', back: 'beautiful', catId: catAdjectives.id },
+        { front: 'μακρός', back: 'long; large', catId: catAdjectives.id },
+        { front: 'μικρός', back: 'small', catId: catAdjectives.id },
+        { front: 'πολύς', back: 'much; pl., many', catId: catAdjectives.id },
+
+        // Prepositional Phrase
+        { front: 'ἐν ταῖς Ἀθήναις', back: 'in Athens', catId: catPrep.id },
+
+        // Adverbs, Conjunctions & Particles
+        { front: 'οὐ, οὐκ, οὐχ', back: 'not', catId: catAdvPart.id },
+        { front: 'οὖν', back: 'so, then', catId: catAdvPart.id },
+        { front: 'ἀλλά', back: 'but', catId: catAdvPart.id },
+        { front: 'γάρ', back: 'for', catId: catAdvPart.id },
+        { front: 'καί', back: 'and', catId: catAdvPart.id },
+        { front: 'δέ', back: 'and, but', catId: catAdvPart.id },
+
+        // Proper Names
+        { front: 'Ἀθηναῖος', back: 'Athenian', catId: catNames.id },
+        { front: 'ὁ Δικαιόπολις', back: 'Dicaeopolis', catId: catNames.id },
+    ];
+
+    d.cards = rawCards.map(c => mkCard(c.front, c.back, c.catId));
+    d.bundles = [
+        {
+            id: Utils.uid(),
+            name: 'Athenaze 1α: Core Vocabulary',
+            cardIds: d.cards.map(c => c.id)
+        }
+    ];
+
+    return d;
 }
 
         // =====================================================================
@@ -83,13 +147,13 @@ function save() { Store.save(State.decks); }
         // =====================================================================
 function init() {
     State.decks = Store.load();
-    if (!State.decks.length) {
-        const d = mkDeck('My Flashcards');
-        const cats = d.categories;
-        ['amare (to love)', 'scribere (to write)', 'legere (to read)', 'venire (to come)', 'videre (to see)'].forEach((b, i) => {
-            d.cards.push(mkCard(['amor', 'scriptor', 'lector', 'ventor', 'visor'][i], b, cats[0].id, i * 5 + 5));
-        });
-        State.decks.push(d);
+    const isLegacyDefault = State.decks.length === 1 &&
+        State.decks[0].name === 'My Flashcards' &&
+        State.decks[0].cards.length === 5 &&
+        State.decks[0].cards[0].front === 'amor';
+
+    if (!State.decks.length || isLegacyDefault) {
+        State.decks = [mkAthenaze1aDeck()];
         save();
     }
     State.curDeckId = Store.currentId();
@@ -97,27 +161,45 @@ function init() {
     Store.setCur(State.curDeckId);
     renderDeckBar();
     renderSelectView();
-    renderEditView();
+    renderEditCards();
     renderBundleView();
     renderCriteriaView();
     renderSettingsView();
     renderExportFields();
     updateDeckStats();
+    gatherCards();
+
+    // Check for direct drill URL query parameter (?drill=1 or ?start=1)
+    try {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('drill') === '1' || params.get('start') === '1') {
+            startDrill();
+        }
+    } catch (_) {}
 }
 
         // =====================================================================
         // NAVIGATION
         // =====================================================================
         function showView(v) {
+            if (v === 'drill' && !State.drillSession) {
+                if (!State.gatheredCards.length) gatherCards();
+                startDrill();
+                return;
+            }
             document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
-            document.getElementById('view-' + v).classList.add('active');
+            const viewEl = document.getElementById('view-' + v);
+            if (viewEl) viewEl.classList.add('active');
             const btns = [...document.querySelectorAll('.nav-btn')];
             const names = ['select', 'drill', 'edit', 'tables', 'bundles', 'criteria', 'settings', 'ie'];
             const i = names.indexOf(v);
-            if (i >= 0) btns[i].classList.add('active');
+            if (i >= 0 && btns[i]) btns[i].classList.add('active');
             if (v === 'edit') renderEditCards();
-            if (v === 'tables') renderTable(document.getElementById('table-select').value);
+            if (v === 'tables') {
+                const ts = document.getElementById('table-select');
+                if (ts) renderTable(ts.value);
+            }
             if (v === 'bundles') renderBundleView();
         }
 
@@ -133,7 +215,7 @@ function updateDeckStats() {
     if (!d) return;
     document.getElementById('deck-stats').textContent = `${d.cards.length} cards | ${d.bundles.length} bundles | ${d.categories.length} categories`;
 }
-function switchDeck(id) { State.curDeckId = id; Store.setCur(id); State.gatheredCards = []; renderSelectView(); renderEditView(); renderBundleView(); renderCriteriaView(); renderSettingsView(); updateDeckStats(); }
+function switchDeck(id) { State.curDeckId = id; Store.setCur(id); State.gatheredCards = []; renderDeckBar(); renderSelectView(); renderEditCards(); renderBundleView(); renderCriteriaView(); renderSettingsView(); updateDeckStats(); }
 function newDeck() {
     openModal('New Deck', '<input type="text" id="m-name" placeholder="Deck name…" style="width:100%">', () => {
         const name = document.getElementById('m-name').value.trim();
@@ -141,7 +223,7 @@ function newDeck() {
         const d = mkDeck(name);
         State.decks.push(d); save();
         State.curDeckId = d.id; Store.setCur(d.id);
-        renderDeckBar(); renderSelectView(); renderEditView(); renderBundleView(); renderCriteriaView(); renderSettingsView(); updateDeckStats();
+        renderDeckBar(); renderSelectView(); renderEditCards(); renderBundleView(); renderCriteriaView(); renderSettingsView(); updateDeckStats();
     });
     setTimeout(() => document.getElementById('m-name')?.focus(), 50);
 }
@@ -150,7 +232,7 @@ function deleteDeck() {
     if (!confirm(`Delete deck "${State.deck.name}"? This cannot be undone.`)) return;
     State.decks = State.decks.filter(d => d.id !== State.curDeckId); save();
     State.curDeckId = State.decks[0].id; Store.setCur(State.curDeckId);
-    renderDeckBar(); renderSelectView(); renderEditView(); renderBundleView(); renderCriteriaView(); renderSettingsView(); updateDeckStats();
+    renderDeckBar(); renderSelectView(); renderEditCards(); renderBundleView(); renderCriteriaView(); renderSettingsView(); updateDeckStats();
 }
 function exportDeck() {
     const d = State.deck;
@@ -168,7 +250,7 @@ function handleLoadDeck(e) {
             d.id = Utils.uid();
             d.name = (d.name || 'Imported Deck') + ' (imported)';
             State.decks.push(d); save(); State.curDeckId = d.id; Store.setCur(d.id);
-            renderDeckBar(); renderSelectView(); renderEditView(); renderBundleView(); renderCriteriaView(); renderSettingsView(); updateDeckStats();
+            renderDeckBar(); renderSelectView(); renderEditCards(); renderBundleView(); renderCriteriaView(); renderSettingsView(); updateDeckStats();
             alert('Deck loaded: ' + d.name);
         } catch (err) { alert('Error loading deck: ' + err.message); }
     };
@@ -261,6 +343,7 @@ function gatherCards() {
     document.getElementById('gathered-count').textContent = `(${result.length} matched, showing ${State.gatheredCards.length})`;
 }
 function startDrill() {
+    if (!State.gatheredCards.length) gatherCards();
     if (!State.gatheredCards.length) { alert('No cards gathered. Press Gather first.'); return; }
     State.drillSession = {
         cards: [...State.gatheredCards],
@@ -323,7 +406,8 @@ function judgeCard(right) {
     const d = State.deck;
     const realCard = d.cards.find(x => x.id === c.id);
     if (realCard) {
-        const m = realCard[c._dir];
+        const dir = c._dir === 'bf' ? 'bf' : 'fb';
+        const m = realCard[dir] = realCard[dir] || { timesRight: 0, timesWrong: 0, timesRightSinceWrong: 0, dateLastRight: null, dateLastWrong: null };
         if (right) {
             m.timesRight++; m.timesRightSinceWrong++; m.dateLastRight = Utils.now();
             s.right++;
@@ -345,7 +429,8 @@ function prevCard() {
         const d = State.deck;
         const rc = d.cards.find(x => x.id === last.cardId);
         if (rc) {
-            const m = rc[last.dir];
+            const dir = last.dir === 'bf' ? 'bf' : 'fb';
+            const m = rc[dir] = rc[dir] || { timesRight: 0, timesWrong: 0, timesRightSinceWrong: 0, dateLastRight: null, dateLastWrong: null };
             if (last.right) { m.timesRight--; m.timesRightSinceWrong = Math.max(0, m.timesRightSinceWrong - 1); if (m.timesRight < 0) m.timesRight = 0; s.right--; }
             else { m.timesWrong--; if (m.timesWrong < 0) m.timesWrong = 0; s.wrong--; }
             save();
@@ -392,6 +477,7 @@ function renderEditCards() {
     State.editCards = [...d.cards];
     renderEditCard();
 }
+function renderEditView() { renderEditCards(); }
 function renderEditCard() {
     const d = State.deck; if (!d) return;
     if (!State.editCards.length) { clearEditForm(); return; }
