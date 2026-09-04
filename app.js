@@ -71,67 +71,100 @@ function mkDeck(name = 'New Deck') {
     };
 }
 
-function mkAthenaze1aDeck() {
-    const d = mkDeck('Athenaze Book I — Chapter 1α (Ο ΔΙΚΑΙΟΠΟΛΙΣ)');
+function buildAthenazeDeck(ch) {
+    const d = mkDeck(`Athenaze Book I — Chapter ${ch.num}: ${ch.title}`);
     d.settings.fontSize = 28;
 
-    const catVerbs = { id: Utils.uid(), name: 'Verbs' };
-    const catNouns = { id: Utils.uid(), name: 'Nouns' };
-    const catAdjectives = { id: Utils.uid(), name: 'Adjectives' };
-    const catPrep = { id: Utils.uid(), name: 'Prepositional Phrases' };
-    const catAdvPart = { id: Utils.uid(), name: 'Adverbs, Conjunctions & Particles' };
-    const catNames = { id: Utils.uid(), name: 'Proper Names' };
+    const posSet = [...new Set(ch.cards.map(c => c.pos || 'General'))];
+    const catMap = {};
+    d.categories = posSet.map(name => {
+        const id = Utils.uid();
+        catMap[name] = id;
+        return { id, name };
+    });
 
-    d.categories = [catVerbs, catNouns, catAdjectives, catPrep, catAdvPart, catNames];
+    const alphaCards = [];
+    const betaCards = [];
+    d.cards = ch.cards.map(c => {
+        const catId = catMap[c.pos || 'General'] || d.categories[0].id;
+        const card = mkCard(c.front, c.back, catId);
+        card._sub = c.sub;
+        if (c.sub === 'α') alphaCards.push(card.id);
+        else if (c.sub === 'β') betaCards.push(card.id);
+        return card;
+    });
 
-    const rawCards = [
-        // Verbs
-        { front: 'ἐστί(ν)', back: 'he/she/it is', catId: catVerbs.id },
-        { front: 'λέγει', back: 'he/she says; he/she tells; he/she speaks', catId: catVerbs.id },
-        { front: 'οἰκεῖ', back: 'he/she lives; he/she dwells', catId: catVerbs.id },
-        { front: 'πονεῖ', back: 'he/she works', catId: catVerbs.id },
-        { front: 'φιλεῖ', back: 'he/she loves', catId: catVerbs.id },
-        { front: 'χαίρει', back: 'he/she rejoices', catId: catVerbs.id },
+    d.bundles = [];
+    if (alphaCards.length) {
+        d.bundles.push({ id: Utils.uid(), name: `Chapter ${ch.num}α`, cardIds: alphaCards });
+    }
+    if (betaCards.length) {
+        d.bundles.push({ id: Utils.uid(), name: `Chapter ${ch.num}β`, cardIds: betaCards });
+    }
+    d.bundles.push({ id: Utils.uid(), name: `Chapter ${ch.num} (All)`, cardIds: d.cards.map(c => c.id) });
 
-        // Nouns
-        { front: 'ὁ ἀγρός', back: 'field', catId: catNouns.id },
-        { front: 'ὁ ἄνθρωπος', back: 'man; human being; person', catId: catNouns.id },
-        { front: 'ὁ αὐτουργός', back: 'farmer', catId: catNouns.id },
-        { front: 'ὁ οἶκος', back: 'house; home; dwelling', catId: catNouns.id },
-        { front: 'ὁ πόνος', back: 'toil, work', catId: catNouns.id },
-        { front: 'ὁ σῖτος', back: 'grain; food', catId: catNouns.id },
+    return d;
+}
 
-        // Adjectives
-        { front: 'καλός', back: 'beautiful', catId: catAdjectives.id },
-        { front: 'μακρός', back: 'long; large', catId: catAdjectives.id },
-        { front: 'μικρός', back: 'small', catId: catAdjectives.id },
-        { front: 'πολύς', back: 'much; pl., many', catId: catAdjectives.id },
+function buildAthenazeMasterDeck() {
+    const d = mkDeck('Athenaze Book I (Chapters 1–16 Complete)');
+    d.settings.fontSize = 28;
 
-        // Prepositional Phrase
-        { front: 'ἐν ταῖς Ἀθήναις', back: 'in Athens', catId: catPrep.id },
+    const allCards = (typeof ATHENAZE_CHAPTERS !== 'undefined' && Array.isArray(ATHENAZE_CHAPTERS)) ? ATHENAZE_CHAPTERS.flatMap(ch => ch.cards) : [];
+    const posSet = [...new Set(allCards.map(c => c.pos || 'General'))];
+    const catMap = {};
+    d.categories = posSet.map(name => {
+        const id = Utils.uid();
+        catMap[name] = id;
+        return { id, name };
+    });
 
-        // Adverbs, Conjunctions & Particles
-        { front: 'οὐ, οὐκ, οὐχ', back: 'not', catId: catAdvPart.id },
-        { front: 'οὖν', back: 'so, then', catId: catAdvPart.id },
-        { front: 'ἀλλά', back: 'but', catId: catAdvPart.id },
-        { front: 'γάρ', back: 'for', catId: catAdvPart.id },
-        { front: 'καί', back: 'and', catId: catAdvPart.id },
-        { front: 'δέ', back: 'and, but', catId: catAdvPart.id },
+    d.bundles = [];
+    d.cards = [];
 
-        // Proper Names
-        { front: 'Ἀθηναῖος', back: 'Athenian', catId: catNames.id },
-        { front: 'ὁ Δικαιόπολις', back: 'Dicaeopolis', catId: catNames.id },
-    ];
-
-    d.cards = rawCards.map(c => mkCard(c.front, c.back, c.catId));
-    d.bundles = [
-        {
-            id: Utils.uid(),
-            name: 'Athenaze 1α: Core Vocabulary',
-            cardIds: d.cards.map(c => c.id)
+    if (typeof ATHENAZE_CHAPTERS !== 'undefined' && Array.isArray(ATHENAZE_CHAPTERS)) {
+        for (const ch of ATHENAZE_CHAPTERS) {
+            const chCardIds = [];
+            const alphaIds = [];
+            const betaIds = [];
+            for (const c of ch.cards) {
+                const catId = catMap[c.pos || 'General'] || d.categories[0].id;
+                const card = mkCard(c.front, c.back, catId);
+                card._ch = ch.num;
+                card._sub = c.sub;
+                d.cards.push(card);
+                chCardIds.push(card.id);
+                if (c.sub === 'α') alphaIds.push(card.id);
+                else if (c.sub === 'β') betaIds.push(card.id);
+            }
+            if (alphaIds.length) d.bundles.push({ id: Utils.uid(), name: `Ch ${ch.num}α`, cardIds: alphaIds });
+            if (betaIds.length) d.bundles.push({ id: Utils.uid(), name: `Ch ${ch.num}β`, cardIds: betaIds });
+            d.bundles.push({ id: Utils.uid(), name: `Chapter ${ch.num}: ${ch.title}`, cardIds: chCardIds });
         }
-    ];
+    }
 
+    return d;
+}
+
+function createAllAthenazeDecks() {
+    const decks = [];
+    if (typeof ATHENAZE_CHAPTERS !== 'undefined' && Array.isArray(ATHENAZE_CHAPTERS)) {
+        for (const ch of ATHENAZE_CHAPTERS) {
+            decks.push(buildAthenazeDeck(ch));
+        }
+        decks.push(buildAthenazeMasterDeck());
+    } else {
+        decks.push(mkAthenaze1aDeck());
+    }
+    return decks;
+}
+
+function mkAthenaze1aDeck() {
+    if (typeof ATHENAZE_CHAPTERS !== 'undefined' && ATHENAZE_CHAPTERS[0]) {
+        return buildAthenazeDeck(ATHENAZE_CHAPTERS[0]);
+    }
+    const d = mkDeck('Athenaze Book I — Chapter 1α (Ο ΔΙΚΑΙΟΠΟΛΙΣ)');
+    d.settings.fontSize = 28;
     return d;
 }
 
@@ -178,9 +211,22 @@ function init() {
         State.decks[0].cards[0].front === 'amor';
 
     if (!State.decks.length || isLegacyDefault) {
-        State.decks = [mkAthenaze1aDeck()];
+        State.decks = createAllAthenazeDecks();
+        save();
+    } else if (typeof ATHENAZE_CHAPTERS !== 'undefined' && State.decks.length < 16) {
+        // Automatically upgrade existing decks to include all 16 chapters
+        for (const ch of ATHENAZE_CHAPTERS) {
+            const hasCh = State.decks.some(d => d.name.includes(`Chapter ${ch.num}:`) || d.name.includes(`Chapter ${ch.num} `) || d.name.includes(`Chapter ${ch.num}α`));
+            if (!hasCh) {
+                State.decks.push(buildAthenazeDeck(ch));
+            }
+        }
+        if (!State.decks.some(d => d.name.includes('Complete') || d.name.includes('Chapters 1–16'))) {
+            State.decks.push(buildAthenazeMasterDeck());
+        }
         save();
     }
+
     State.curDeckId = Store.currentId();
     if (!State.deck) State.curDeckId = State.decks[0].id;
     Store.setCur(State.curDeckId);
@@ -201,6 +247,45 @@ function init() {
             State.selCriteriaId = (sr || State.deck.criteria[0]).id;
         }
     }
+
+    // Check for URL query parameters (e.g. ?chapter=1a&drill=1 or ?ch=2b&limit=10)
+    try {
+        const params = new URLSearchParams(window.location.search);
+        const chParam = params.get('chapter') || params.get('ch') || params.get('lesson');
+        if (chParam) {
+            const m = chParam.trim().match(/^(\d+)\s*([a-zA-Zα-ωΑ-Ω])?$/);
+            if (m) {
+                const chNum = parseInt(m[1], 10);
+                const subLetter = m[2] ? (m[2].toLowerCase() === 'b' || m[2] === 'β' ? 'β' : 'α') : null;
+                const targetDeck = State.decks.find(d => d.name.includes(`Chapter ${chNum}:`) || d.name.includes(`Chapter ${chNum} `) || d.name.includes(`Chapter ${chNum}α`));
+                if (targetDeck) {
+                    State.curDeckId = targetDeck.id;
+                    Store.setCur(targetDeck.id);
+                    State.selBundleIds.clear();
+                    if (subLetter) {
+                        const targetBundle = targetDeck.bundles.find(b => b.name.includes(`${chNum}${subLetter}`));
+                        if (targetBundle) {
+                            State.selBundleIds.add(targetBundle.id);
+                        }
+                    }
+                }
+            }
+        }
+        const limitParam = params.get('limit') || params.get('max');
+        if (limitParam && !isNaN(limitParam)) {
+            const lim = parseInt(limitParam, 10);
+            if (lim > 0) {
+                localStorage.setItem('flashpro_session_limit', String(lim));
+                if (elMax) elMax.value = lim;
+                if (elDrillMax) elDrillMax.value = lim;
+            }
+        }
+        const dirParam = params.get('dir');
+        if (dirParam && ['fb', 'bf', 'both'].includes(dirParam)) {
+            const dirEl = document.getElementById('drill-direction');
+            if (dirEl) dirEl.value = dirParam;
+        }
+    } catch (_) {}
 
     renderDeckBar();
     renderSelectView();
@@ -619,6 +704,7 @@ function renderEditCard() {
     document.getElementById('edit-bundles').innerHTML = cardBundles.length ? cardBundles.map(b => `<span class="tag">${Utils.escH(b.name)}</span>`).join('') : '<span style="color:#5a6890;font-size:.8em">No bundles</span>';
 }
 function renderMetrics(m) {
+    m = m || {};
     const fmt = v => (v && v !== DEFAULT_DATE) ? new Date(v).toLocaleDateString() : '–';
     return [
         ['Times Right', m.timesRight || 0],
