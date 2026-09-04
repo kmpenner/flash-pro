@@ -515,8 +515,8 @@ function renderHelpContent(activeTab) {
         body += `
             <div class="col" style="gap: 10px;">
                 <div class="help-card">
-                    <h4>All 16 Athenaze Book I Chapters Included</h4>
-                    <p>Use the <b>Active Deck</b> dropdown at the top to switch between Chapters 1 through 16, or choose the <b>Master Deck</b> to study across the entire textbook. If chapters are missing from an older session, go to <b>Settings</b> and click <b>Restore Athenaze Decks</b>.</p>
+                    <h4>All 16 Athenaze Book I Chapters & Authentic MDB Included</h4>
+                    <p>Use the <b>Active Deck</b> dropdown at the top to switch between Chapters 1 through 16, the <b>Master Deck</b>, or the authentic <b>Athenaze Complete (Authentic MDB — 580 Cards)</b> with all 48 reading bundles and historical study metrics. In <b>Settings</b>, you can also load the <b>Extended Lexicon (1,220 Cards)</b> or download the full JSON datasets for offline archival.</p>
                 </div>
                 <div class="help-card">
                     <h4>Importing Other Textbooks (Latin, Hebrew, French, etc.)</h4>
@@ -565,7 +565,7 @@ function restoreAthenazeDecks() {
     if (typeof createAllAthenazeDecks !== 'function') return;
     openModal(
         'Restore Athenaze Decks',
-        '<p>This will reload all 16 Athenaze Book I chapter decks and the Master Deck (596 cards total). Any identical cards you already studied will preserve their study progress.</p>',
+        '<p>This will reload all 16 Athenaze Book I chapter decks, the Master Deck, and the Authentic MDB database (580 cards). Any identical cards you already studied will preserve their study progress.</p>',
         () => {
             const canonical = createAllAthenazeDecks();
             const existingById = new Map();
@@ -586,15 +586,75 @@ function restoreAthenazeDecks() {
                 }
             }
             // Remove any old athenaze decks and replace with canonical
-            const nonAthenaze = State.decks.filter(d => !d.src || d.src.kind !== 'athenaze');
+            const nonAthenaze = State.decks.filter(d => !d.src || !String(d.src.kind).startsWith('athenaze'));
             State.decks = [...canonical, ...nonAthenaze];
             State.curDeckId = canonical[0].id;
             save();
             renderAll();
             if (typeof gatherCards === 'function') gatherCards();
-            alert('Successfully loaded all 16 Athenaze chapters and Master Deck!');
+            alert('Successfully loaded all 16 Athenaze chapters, Master Deck, and Authentic MDB Database!');
         },
         'Restore Decks',
         'Cancel'
     );
+}
+
+function loadAuthenticMdbDeck() {
+    let d = State.decks.find(x => x.id === 'deck_athenaze_mdb_canonical' || (x.src && x.src.kind === 'athenaze_mdb'));
+    if (!d) {
+        d = typeof buildAthenazeMdbDeck === 'function' ? buildAthenazeMdbDeck() : null;
+        if (d) {
+            State.decks.push(d);
+            save();
+        }
+    }
+    if (d) {
+        if (typeof switchDeck === 'function') switchDeck(d.id);
+        else {
+            State.curDeckId = d.id;
+            Store.setCur(d.id);
+            renderAll();
+        }
+        alert('Loaded Authentic Athenaze MDB database (580 cards, 48 bundles, authentic study metrics).');
+    } else {
+        alert('MDB dataset not available.');
+    }
+}
+
+function loadExtendedLexiconDeck() {
+    let d = State.decks.find(x => x.name && x.name.includes('Extended Lexicon'));
+    if (!d) {
+        d = typeof buildAthenazeExtendedDeck === 'function' ? buildAthenazeExtendedDeck() : null;
+        if (d) {
+            State.decks.push(d);
+            save();
+        }
+    }
+    if (d) {
+        if (typeof switchDeck === 'function') switchDeck(d.id);
+        else {
+            State.curDeckId = d.id;
+            Store.setCur(d.id);
+            renderAll();
+        }
+        alert('Loaded Athenaze Extended Lexicon (1,220 cards).');
+    } else {
+        alert('Extended Lexicon dataset not available.');
+    }
+}
+
+function downloadMdbDeckJson() {
+    if (typeof ATHENAZE_MDB_DECK !== 'undefined' && ATHENAZE_MDB_DECK) {
+        Utils.dlBlob(new Blob([JSON.stringify(ATHENAZE_MDB_DECK, null, 2)], { type: 'application/json' }), 'Athenaze_MDB_Complete_580.json');
+    } else {
+        alert('MDB dataset not loaded.');
+    }
+}
+
+function downloadExtendedDeckJson() {
+    if (typeof ATHENAZE_EXTENDED_DECK !== 'undefined' && ATHENAZE_EXTENDED_DECK) {
+        Utils.dlBlob(new Blob([JSON.stringify(ATHENAZE_EXTENDED_DECK, null, 2)], { type: 'application/json' }), 'Athenaze_Extended_1220.json');
+    } else {
+        alert('Extended dataset not loaded.');
+    }
 }

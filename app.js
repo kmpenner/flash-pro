@@ -48,6 +48,16 @@ function init() {
                 if (changed) save();
             }
         }
+        if (typeof ATHENAZE_MDB_DECK !== 'undefined' && ATHENAZE_MDB_DECK) {
+            const hasMdbDeck = State.decks.some(d => d.id === 'deck_athenaze_mdb_canonical' || (d.src && d.src.kind === 'athenaze_mdb'));
+            if (!hasMdbDeck) {
+                const mdbDeck = typeof buildAthenazeMdbDeck === 'function' ? buildAthenazeMdbDeck() : null;
+                if (mdbDeck) {
+                    State.decks.push(mdbDeck);
+                    save();
+                }
+            }
+        }
     }
 
     State.curDeckId = Store.currentId();
@@ -93,6 +103,31 @@ function init() {
                     }
                 }
             }
+        }
+        const deckParam = params.get('deck');
+        if (deckParam === 'mdb') {
+            const mdbDk = State.decks.find(d => d.id === 'deck_athenaze_mdb_canonical' || (d.src && d.src.kind === 'athenaze_mdb'));
+            if (mdbDk) {
+                State.curDeckId = mdbDk.id;
+                Store.setCur(mdbDk.id);
+            }
+        } else if (deckParam === 'extended') {
+            let extDk = State.decks.find(d => d.name && d.name.includes('Extended Lexicon'));
+            if (!extDk && typeof buildAthenazeExtendedDeck === 'function') {
+                extDk = buildAthenazeExtendedDeck();
+                if (extDk) {
+                    State.decks.push(extDk);
+                    save();
+                }
+            }
+            if (extDk) {
+                State.curDeckId = extDk.id;
+                Store.setCur(extDk.id);
+            }
+        }
+        const viewParam = params.get('view');
+        if (viewParam && typeof showView === 'function') {
+            setTimeout(() => showView(viewParam), 0);
         }
         const limitParam = params.get('limit') || params.get('max');
         if (limitParam && !isNaN(limitParam)) {

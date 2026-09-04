@@ -481,10 +481,24 @@
 
                 <div class="panel col" style="margin-top: 30px;">
                     <div class="panel-title">Preloaded Textbooks & Curriculum</div>
-                    <p class="text-secondary" style="font-size: 0.88em; margin: 0;">Reload the complete canonical textbook datasets if your browser storage was cleared or missing chapters.</p>
-                    <div class="row" style="margin-top: 8px;">
+                    <p class="text-secondary" style="font-size: 0.88em; margin: 0;">Reload the complete canonical textbook datasets from the original Flash! Pro Microsoft Access database (Athenaze 1-12.mdb) and extended lexicons.</p>
+                    <div class="row" style="margin-top: 12px; flex-wrap: wrap; gap: 10px;">
                         <button class="btn btn-secondary" onclick="restoreAthenazeDecks()">
-                            <i data-lucide="book-open"></i> Restore Athenaze Book I (All 16 Chapters + Master Deck)
+                            <i data-lucide="book-open"></i> Restore Athenaze Chapters (1–16 & Master Deck)
+                        </button>
+                        <button class="btn btn-secondary" onclick="loadAuthenticMdbDeck()">
+                            <i data-lucide="database"></i> Load Authentic MDB Database (580 Cards)
+                        </button>
+                        <button class="btn btn-secondary" onclick="loadExtendedLexiconDeck()">
+                            <i data-lucide="library"></i> Load Extended Lexicon (1,220 Cards)
+                        </button>
+                    </div>
+                    <div class="row" style="margin-top: 10px; flex-wrap: wrap; gap: 10px;">
+                        <button class="btn btn-secondary" style="font-size: 0.82em;" onclick="downloadMdbDeckJson()">
+                            <i data-lucide="download"></i> Download MDB Dataset (JSON)
+                        </button>
+                        <button class="btn btn-secondary" style="font-size: 0.82em;" onclick="downloadExtendedDeckJson()">
+                            <i data-lucide="download"></i> Download Extended Lexicon (JSON)
                         </button>
                     </div>
                 </div>
@@ -586,6 +600,8 @@
     </div>
 
     <script src="athenaze-data.js"></script>
+    <script src="athenaze-mdb-data.js"></script>
+    <script src="athenaze-extended-data.js"></script>
     <script src="js/state.js"></script>
     <script src="js/criteria.js"></script>
     <script src="js/drill.js"></script>

@@ -2827,7 +2827,7 @@ var ATHENAZE_CHAPTERS = [
       },
       {
         "front": "ἀληθής, ἀληθές",
-        "back": "1",
+        "back": "true",
         "sub": "β",
         "pos": "Adjectives"
       },
@@ -2845,7 +2845,7 @@ var ATHENAZE_CHAPTERS = [
       },
       {
         "front": "ψευδής, -ές",
-        "back": "0",
+        "back": "false",
         "sub": "β",
         "pos": "Adjectives"
       },

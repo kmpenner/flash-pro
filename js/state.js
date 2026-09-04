@@ -163,6 +163,20 @@ function buildAthenazeMasterDeck() {
     return d;
 }
 
+function buildAthenazeMdbDeck() {
+    if (typeof ATHENAZE_MDB_DECK !== 'undefined' && ATHENAZE_MDB_DECK) {
+        return JSON.parse(JSON.stringify(ATHENAZE_MDB_DECK));
+    }
+    return null;
+}
+
+function buildAthenazeExtendedDeck() {
+    if (typeof ATHENAZE_EXTENDED_DECK !== 'undefined' && ATHENAZE_EXTENDED_DECK) {
+        return JSON.parse(JSON.stringify(ATHENAZE_EXTENDED_DECK));
+    }
+    return null;
+}
+
 function createAllAthenazeDecks() {
     const decks = [];
     if (typeof ATHENAZE_CHAPTERS !== 'undefined' && Array.isArray(ATHENAZE_CHAPTERS) && ATHENAZE_CHAPTERS.length) {
@@ -172,6 +186,10 @@ function createAllAthenazeDecks() {
         decks.push(buildAthenazeMasterDeck());
     } else {
         decks.push(mkAthenaze1aDeck());
+    }
+    const mdbDeck = buildAthenazeMdbDeck();
+    if (mdbDeck) {
+        decks.push(mdbDeck);
     }
     return decks;
 }
