@@ -238,7 +238,11 @@ function setSessionLimit(val) {
     if (typeof gatherCards === 'function') gatherCards();
 }
 
-function openModal(title, body, cb, okText = 'Confirm', cancelText = 'Dismiss') {
+function openModal(title, body, cb, okText = 'Confirm', cancelText = 'Dismiss', extraClass = '') {
+    const modalBox = document.querySelector('#modal .modal');
+    if (modalBox) {
+        modalBox.className = 'modal' + (extraClass ? ' ' + extraClass : '');
+    }
     const titleEl = document.getElementById('modal-title');
     if (titleEl) titleEl.textContent = title;
     const bodyEl = document.getElementById('modal-body');
@@ -256,10 +260,14 @@ function openModal(title, body, cb, okText = 'Confirm', cancelText = 'Dismiss') 
     const modalEl = document.getElementById('modal');
     if (modalEl) modalEl.style.display = 'flex';
     State.modalCallback = cb;
+    if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
 }
 function closeModal() {
     const modalEl = document.getElementById('modal');
     if (modalEl) modalEl.style.display = 'none';
+    const modalBox = document.querySelector('#modal .modal');
+    if (modalBox) modalBox.className = 'modal';
     State.modalCallback = null;
 }
 function modalOk() { if (State.modalCallback) State.modalCallback(); closeModal(); }
+

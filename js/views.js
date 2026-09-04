@@ -658,3 +658,203 @@ function downloadExtendedDeckJson() {
         alert('Extended dataset not loaded.');
     }
 }
+
+// =====================================================================
+// CURRICULUM LIBRARY & MDB DECK BROWSER
+// =====================================================================
+
+let _catalogFilterLang = 'all';
+let _catalogSearchQuery = '';
+
+function renderCurriculumLibraryContent() {
+    const catalog = window.FLASH_PRO_CATALOG || [];
+    if (!catalog.length) {
+        return `<div style="text-align:center; padding:30px; color:var(--text-secondary);">No curriculum catalog loaded.</div>`;
+    }
+
+    const languages = ['all', ...new Set(catalog.map(d => d.language))];
+    const q = (_catalogSearchQuery || '').toLowerCase();
+
+    const filtered = catalog.filter(d => {
+        const matchLang = _catalogFilterLang === 'all' || d.language === _catalogFilterLang;
+        const matchQ = !q || d.title.toLowerCase().includes(q) || d.category.toLowerCase().includes(q) || d.language.toLowerCase().includes(q);
+        return matchLang && matchQ;
+    });
+
+    const totalCardsCount = catalog.reduce((acc, d) => acc + (d.totalCards || 0), 0);
+
+    return `
+        <div class="col" style="gap: 12px;">
+            <div style="font-size: 0.88em; color: var(--text-secondary);">
+                Browse, load, and download <b>${catalog.length} textbooks and language decks</b> (${totalCardsCount.toLocaleString()} cards) converted with Unicode polytonic accents and vowel points directly from the original Microsoft Access databases.
+            </div>
+            <div class="catalog-filter-bar">
+                <input type="text" class="catalog-search-input" id="catalog-search" placeholder="Search textbooks (e.g. Mounce, Wheelock, Kelley, Dobson, French...)" value="${Utils.escAttr(_catalogSearchQuery)}" oninput="onCatalogSearch(this.value)">
+                <div class="row" style="gap:6px; flex-wrap:wrap;">
+                    ${languages.map(lang => `
+                        <button class="btn btn-sm ${lang === _catalogFilterLang ? 'btn-primary' : 'btn-secondary'}" onclick="filterCatalogByLang('${lang}')">
+                            ${lang === 'all' ? '🌐 All Languages' : lang}
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+            <div class="catalog-grid" id="catalog-card-grid">
+                ${filtered.map(d => {
+                    const isLoaded = State.decks.some(x => x.id === d.id || (x.src && x.src.kind === `mdb_${d.id.replace('deck_', '')}`));
+                    return `
+                        <div class="catalog-card">
+                            <div>
+                                <div class="catalog-card-header">
+                                    <div class="catalog-card-title">${Utils.escH(d.title)}</div>
+                                    <span class="tag">${Utils.escH(d.language)}</span>
+                                </div>
+                                <div class="catalog-card-meta">
+                                    <span>📁 ${Utils.escH(d.category)}</span>
+                                    <span>🎴 <b>${d.totalCards.toLocaleString()}</b> cards</span>
+                                    <span>📦 <b>${d.totalBundles}</b> bundles</span>
+                                </div>
+                                ${d.sampleFront ? `
+                                    <div class="catalog-card-sample">
+                                        <b>Sample:</b> ${Utils.escH(d.sampleFront)} ➔ <i>${Utils.escH(d.sampleBack)}</i>
+                                    </div>
+                                ` : ''}
+                            </div>
+                            <div class="catalog-card-actions">
+                                <button class="btn btn-sm btn-secondary" onclick="downloadCatalogDeck('${d.id}')" title="Download standalone JSON deck">
+                                    <i data-lucide="download"></i> JSON
+                                </button>
+                                <button class="btn btn-sm ${isLoaded ? 'btn-secondary' : 'btn-primary'}" onclick="loadCatalogDeck('${d.id}')">
+                                    <i data-lucide="${isLoaded ? 'check' : 'plus-circle'}"></i> ${isLoaded ? 'Switch To Deck' : 'Load Into App'}
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function openCurriculumLibraryModal() {
+    openModal('🏛️ Curriculum & Textbook Library', renderCurriculumLibraryContent(), null, null, 'Close', 'modal-wide');
+}
+
+function onCatalogSearch(query) {
+    _catalogSearchQuery = query;
+    const bodyEl = document.getElementById('modal-body');
+    if (bodyEl) {
+        bodyEl.innerHTML = renderCurriculumLibraryContent();
+        const input = document.getElementById('catalog-search');
+        if (input) {
+            if (typeof input.focus === 'function') input.focus();
+            if (typeof input.setSelectionRange === 'function') {
+                input.setSelectionRange(input.value.length, input.value.length);
+            }
+        }
+    }
+}
+
+function filterCatalogByLang(lang) {
+    _catalogFilterLang = lang;
+    const bodyEl = document.getElementById('modal-body');
+    if (bodyEl) bodyEl.innerHTML = renderCurriculumLibraryContent();
+}
+
+async function fetchDeckData(deckItem) {
+    // If deck is Athenaze MDB or Extended, we have them directly in global memory
+    if (deckItem.id === 'deck_athenaze_mdb_canonical' && typeof ATHENAZE_MDB_DECK !== 'undefined') {
+        return JSON.parse(JSON.stringify(ATHENAZE_MDB_DECK));
+    }
+    if (deckItem.id === 'deck_athenaze_extended_lexicon' && typeof ATHENAZE_EXTENDED_DECK !== 'undefined') {
+        return JSON.parse(JSON.stringify(ATHENAZE_EXTENDED_DECK));
+    }
+    const resp = await fetch(deckItem.file);
+    if (!resp.ok) throw new Error(`HTTP error ${resp.status}`);
+    return await resp.json();
+}
+
+async function loadCatalogDeck(deckId) {
+    const catalog = window.FLASH_PRO_CATALOG || [];
+    const item = catalog.find(d => d.id === deckId);
+    if (!item) return;
+
+    // Check if already loaded
+    let existing = State.decks.find(x => x.id === deckId || (x.src && x.src.kind === `mdb_${deckId.replace('deck_', '')}`));
+    if (existing) {
+        switchDeck(existing.id);
+        closeModal();
+        return;
+    }
+
+    try {
+        const deckData = await fetchDeckData(item);
+        if (!deckData) throw new Error('Deck data empty');
+
+        // Convert cards into State format if necessary
+        const categories = (deckData.categories || []).map(c => typeof c === 'string' ? { id: Utils.uid(), name: c } : c);
+        const bundles = (deckData.bundles || []).map(b => ({
+            id: b.id || Utils.uid(),
+            name: b.name || 'Bundle',
+            cardIds: b.cardIds || b.items || []
+        }));
+        const criteria = (deckData.criteria || []).map(cr => ({
+            id: cr.id || Utils.uid(),
+            name: cr.name || 'Criteria',
+            logic: cr.logic || ''
+        }));
+
+        const cards = (deckData.cards || []).map((c, i) => {
+            const fb = c.fb || { timesRight: c.timesRight || 0, timesWrong: c.timesWrong || 0, timesRightSinceWrong: c.timesRightSinceWrong || 0, dateLastRight: DEFAULT_DATE, dateLastWrong: DEFAULT_DATE };
+            const bf = c.bf || { timesRight: c.backTimesRight || 0, timesWrong: c.backTimesWrong || 0, timesRightSinceWrong: c.backTimesRightSinceWrong || 0, dateLastRight: DEFAULT_DATE, dateLastWrong: DEFAULT_DATE };
+            return {
+                id: c.id ? String(c.id) : `${deckId}_${i + 1}`,
+                num: c.num || c.number || (i + 1),
+                front: c.front || '',
+                back: c.back || '',
+                categoryId: c.categoryId || categories[0]?.id || '',
+                category: c.category || categories[0]?.name || '',
+                frequency: c.frequency || 1,
+                editedDate: c.editedDate || Date.now(),
+                fb,
+                bf
+            };
+        });
+
+        const newDeck = {
+            id: deckData.id || deckId,
+            name: deckData.name || item.title,
+            createdDate: deckData.createdDate || Date.now(),
+            src: deckData.src || { kind: `mdb_${deckId.replace('deck_', '')}`, cardsCount: cards.length },
+            language: deckData.language || item.language,
+            settings: deckData.settings || { fontSize: 24, maximumSelected: 10, headTmpl: '', frontTmpl: '', backTmpl: '' },
+            categories,
+            bundles,
+            criteria,
+            cards
+        };
+
+        State.decks.push(newDeck);
+        save();
+        switchDeck(newDeck.id);
+        closeModal();
+    } catch (err) {
+        console.error("Failed to load deck from catalog:", err);
+        alert(`Could not load deck: ${err.message}. If running via local file:///, download the JSON and import via the I/O tab.`);
+    }
+}
+
+async function downloadCatalogDeck(deckId) {
+    const catalog = window.FLASH_PRO_CATALOG || [];
+    const item = catalog.find(d => d.id === deckId);
+    if (!item) return;
+
+    try {
+        const data = await fetchDeckData(item);
+        const fileName = (item.title.replace(/[^a-zA-Z0-9_-]/g, '_') + '.json');
+        Utils.dlBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), fileName);
+    } catch (err) {
+        console.error("Failed to download catalog deck:", err);
+        alert(`Download error: ${err.message}`);
+    }
+}
+
