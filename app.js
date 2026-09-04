@@ -15,10 +15,11 @@ function init() {
     } else {
         // Tag legacy Athenaze decks with machine metadata if missing
         for (const d of State.decks) {
-            if (!d.src) {
-                const m = d.name && d.name.match(/Athenaze Book I — Chapter (\d+)/);
-                if (m) d.src = { kind: 'athenaze', ch: parseInt(m[1], 10) };
-                else if (d.name && (d.name.includes('Chapters 1–16') || d.name.includes('Book I (Chapters'))) {
+            if (!d.src && d.name) {
+                const m = d.name.match(/athenaze.*?(?:chapter|\bch\.?)\s*(\d+)/i);
+                if (m) {
+                    d.src = { kind: 'athenaze', ch: parseInt(m[1], 10) };
+                } else if (/athenaze/i.test(d.name) && (d.name.includes('1–16') || d.name.includes('1-16') || /master/i.test(d.name))) {
                     d.src = { kind: 'athenaze', ch: 'all' };
                 }
             }
@@ -29,7 +30,8 @@ function init() {
                     .filter(d => d.src && d.src.kind === 'athenaze')
                     .map(d => d.src.ch)
             );
-            if (existingChs.size > 0 && existingChs.size < ATHENAZE_CHAPTERS.length + 1) {
+            const hasAnyAthenaze = existingChs.size > 0 || State.decks.some(d => /athenaze/i.test(d.name || ''));
+            if (hasAnyAthenaze && existingChs.size < ATHENAZE_CHAPTERS.length + 1) {
                 let changed = false;
                 for (const ch of ATHENAZE_CHAPTERS) {
                     if (!existingChs.has(ch.num)) {

@@ -95,15 +95,15 @@
                 <div class="col">
                     <div class="panel">
                         <div class="panel-title">Session Logic</div>
-                        <div class="listbox" id="criteria-list" style="height:160px"></div>
+                        <div class="listbox" id="criteria-list" style="height:120px"></div>
                     </div>
                     <div class="panel">
                         <div class="panel-title">Logic Details</div>
-                        <div class="mono" id="criteria-display" style="height:60px; overflow:auto;"></div>
+                        <div class="mono" id="criteria-display" style="height:42px; overflow:auto;"></div>
                     </div>
                     <div class="panel col">
                         <div class="panel-title">Mode</div>
-                        <select id="drill-direction">
+                        <select id="drill-direction" onchange="if (typeof gatherCards === 'function') gatherCards();">
                             <option value="fb">Front → Back</option>
                             <option value="bf">Back → Front</option>
                             <option value="both">Synchronized (Both)</option>
@@ -136,7 +136,7 @@
                 </div>
                 <span id="gathered-count" class="text-secondary" style="font-size: 0.85em; font-weight: 500;"></span>
             </div>
-            <div class="col" style="flex:1;min-height:0">
+            <div class="col" style="flex-shrink: 0; min-height: 140px;">
                 <div class="panel-title">Queue Preview <span id="sel-badge" class="badge">0</span></div>
                 <div class="listbox" id="gathered-list" style="flex:1"></div>
             </div>
@@ -477,6 +477,16 @@
                 <div class="row" style="margin-top: 30px; justify-content: flex-end;">
                     <button class="btn btn-secondary" onclick="resetSettings()">Defaults</button>
                     <button class="btn btn-primary" onclick="saveSettings()" style="padding: 10px 40px;">Apply Configuration</button>
+                </div>
+
+                <div class="panel col" style="margin-top: 30px;">
+                    <div class="panel-title">Preloaded Textbooks & Curriculum</div>
+                    <p class="text-secondary" style="font-size: 0.88em; margin: 0;">Reload the complete canonical textbook datasets if your browser storage was cleared or missing chapters.</p>
+                    <div class="row" style="margin-top: 8px;">
+                        <button class="btn btn-secondary" onclick="restoreAthenazeDecks()">
+                            <i data-lucide="book-open"></i> Restore Athenaze Book I (All 16 Chapters + Master Deck)
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

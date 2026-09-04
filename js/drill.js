@@ -3,8 +3,8 @@
 // =====================================================================
 
 function startDrill() {
-    if (!State.gatheredCards.length && typeof gatherCards === 'function') gatherCards();
-    if (!State.gatheredCards.length) { alert('No cards gathered. Press Gather first.'); return; }
+    if (typeof gatherCards === 'function') gatherCards();
+    if (!State.gatheredCards.length) { alert('No cards gathered matching your selection.'); return; }
     cancelAutoRestart();
     State.drillSession = {
         cards: [...State.gatheredCards],

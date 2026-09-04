@@ -60,7 +60,10 @@ function switchDeck(id) {
     State.curDeckId = id;
     Store.setCur(id);
     State.gatheredCards = [];
+    State.selBundleIds.clear();
+    State.selCatIds.clear();
     renderAll();
+    if (typeof gatherCards === 'function') gatherCards();
 }
 
 function newDeck() {
@@ -440,6 +443,7 @@ function renderHelpContent(activeTab) {
         { id: 'quickstart', label: '🎓 Quick Start' },
         { id: 'shortcuts', label: '⌨️ Shortcuts' },
         { id: 'spacedrep', label: '🧠 Spaced Repetition' },
+        { id: 'textbooks', label: '📚 Textbooks & Import' },
         { id: 'links', label: '🔗 Direct Links' }
     ];
 
@@ -507,6 +511,24 @@ function renderHelpContent(activeTab) {
                 </div>
             </div>
         `;
+    } else if (activeTab === 'textbooks') {
+        body += `
+            <div class="col" style="gap: 10px;">
+                <div class="help-card">
+                    <h4>All 16 Athenaze Book I Chapters Included</h4>
+                    <p>Use the <b>Active Deck</b> dropdown at the top to switch between Chapters 1 through 16, or choose the <b>Master Deck</b> to study across the entire textbook. If chapters are missing from an older session, go to <b>Settings</b> and click <b>Restore Athenaze Decks</b>.</p>
+                </div>
+                <div class="help-card">
+                    <h4>Importing Other Textbooks (Latin, Hebrew, French, etc.)</h4>
+                    <p>You can add vocabulary lists from any textbook in 3 quick steps:</p>
+                    <ul style="margin: 8px 0 0 18px; padding: 0;">
+                        <li style="margin-bottom: 6px;">1. Click <b style="color:var(--secondary)">+ New</b> at the top to create a deck (e.g. <i>Wheelock's Latin</i>).</li>
+                        <li style="margin-bottom: 6px;">2. Switch to the <b>I/O</b> tab in the top navigation bar.</li>
+                        <li style="margin-bottom: 6px;">3. Paste tab-separated or comma-separated cards (from Excel, Google Sheets, or Quizlet) into <b>Raw Ingest Buffer</b>, click <b>Validate & Map</b>, then <b>Import</b>!</li>
+                    </ul>
+                </div>
+            </div>
+        `;
     } else if (activeTab === 'links') {
         body += `
             <div class="col" style="gap: 10px;">
@@ -537,4 +559,42 @@ function openHelpModal(tab = 'quickstart') {
         localStorage.setItem('flashpro_seen_guide', '1');
         closeModal();
     }, 'Start Studying!', 'Close');
+}
+
+function restoreAthenazeDecks() {
+    if (typeof createAllAthenazeDecks !== 'function') return;
+    openModal(
+        'Restore Athenaze Decks',
+        '<p>This will reload all 16 Athenaze Book I chapter decks and the Master Deck (596 cards total). Any identical cards you already studied will preserve their study progress.</p>',
+        () => {
+            const canonical = createAllAthenazeDecks();
+            const existingById = new Map();
+            for (const d of State.decks) {
+                for (const c of d.cards) {
+                    existingById.set(c.id, c);
+                }
+            }
+            // Preserve metrics for cards that user already studied
+            for (const d of canonical) {
+                for (let i = 0; i < d.cards.length; i++) {
+                    const c = d.cards[i];
+                    if (existingById.has(c.id)) {
+                        const old = existingById.get(c.id);
+                        c.fb = { ...old.fb };
+                        c.bf = { ...old.bf };
+                    }
+                }
+            }
+            // Remove any old athenaze decks and replace with canonical
+            const nonAthenaze = State.decks.filter(d => !d.src || d.src.kind !== 'athenaze');
+            State.decks = [...canonical, ...nonAthenaze];
+            State.curDeckId = canonical[0].id;
+            save();
+            renderAll();
+            if (typeof gatherCards === 'function') gatherCards();
+            alert('Successfully loaded all 16 Athenaze chapters and Master Deck!');
+        },
+        'Restore Decks',
+        'Cancel'
+    );
 }

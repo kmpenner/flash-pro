@@ -404,12 +404,21 @@ h2 {
 }
 
 /* ---- SELECT VIEW ---- */
+#view-select {
+    overflow-y: auto;
+    gap: 12px;
+}
+
 .select-top {
     display: grid;
     grid-template-columns: 280px 1fr 1fr;
-    gap: 20px;
-    flex: 1;
-    min-height: 0;
+    gap: 16px;
+    flex: 0 0 auto;
+    min-height: auto;
+}
+
+.select-top .panel {
+    padding: 14px 18px;
 }
 
 .select-bottom {
@@ -417,10 +426,16 @@ h2 {
     gap: 16px;
     align-items: center;
     flex-shrink: 0;
-    padding: 20px 0;
+    padding: 14px 0;
     border-top: 1px solid var(--border);
-    margin-top: 20px;
+    margin-top: 10px;
 }
+
+#gathered-list {
+    min-height: 140px;
+    max-height: 240px;
+}
+
 
 /* ---- DRILL VIEW ---- */
 #view-drill {

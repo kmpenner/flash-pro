@@ -59,18 +59,21 @@ function selectCriteria(id) {
     const disp = document.getElementById('criteria-display');
     if (disp) disp.textContent = c ? c.logic : '';
     renderSelectView();
+    gatherCards();
 }
 
 function toggleBundle(id) {
     if (State.selBundleIds.has(id)) State.selBundleIds.delete(id);
     else State.selBundleIds.add(id);
     renderSelectView();
+    gatherCards();
 }
 
 function toggleCat(id) {
     if (State.selCatIds.has(id)) State.selCatIds.delete(id);
     else State.selCatIds.add(id);
     renderSelectView();
+    gatherCards();
 }
 
 function renderGatheredList() {
