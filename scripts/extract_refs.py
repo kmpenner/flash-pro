@@ -1,22 +1,26 @@
 #!/usr/bin/env python3
 """
-Extract the Text table (verse reference -> card number) from an MDB corpus database
-and attach per-card verse references to the corresponding Flash! Pro JSON deck.
+Extract the Text table (reference -> card number) from a Flash! Pro MDB corpus database
+into data/<deck>.refs.json for the Reader's Lexicon.
 
-Reference format (Flash! Pro XP Text table): BBCCCVV — BB=book (01-27 NT order),
-CC=chapter, VV=verse, e.g. 10101 = Matthew 1:1, 272221 = Revelation 22:21.
+Two reference formats:
 
-Output: data/greek_nt.refs.json mapping card id -> list of reference strings "Book C:V",
-plus patches the deck JSON in place with a 'refs' object {cardNum: [refStrings]}.
+- NT (GreekNT.mdb): BBCCCVV — BB=book 01-27 (Books table order: Matthew..Revelation),
+  CC=chapter, VV=verse. Label: "John 3:16".
+- Qumran (Qumran.mdb): BBCCCVV with BB=manuscript index 1-726 (Books table order),
+  CC=chapter index (label resolved via the Books.Chapters column — chapters include
+  fragment designations like f1, f46ii), VV=verse. Label: "1QHa 5:12".
+  Because chapter labels can be non-numeric, each ref is emitted as an object
+  {"l": label, "k": sortKey} where sortKey = book*1_000_000 + chapterIndex*1000 + verse,
+  so the web app can order verses without knowing the manuscript list.
+
+Usage: python3 extract_refs.py <mdb> <deck.json> <format: nt|qumran>
 """
 import json
 import sys
 from access_parser import AccessParser
 
-MDB = '/tmp/GreekNT.mdb'
-DECK = 'data/greek_nt.json'
-
-BOOK_NAMES = [
+NT_BOOKS = [
     'Matthew', 'Mark', 'Luke', 'John', 'Acts', 'Romans', '1 Corinthians',
     '2 Corinthians', 'Galatians', 'Ephesians', 'Philippians', 'Colossians',
     '1 Thessalonians', '2 Thessalonians', '1 Timothy', '2 Timothy', 'Titus',
@@ -25,93 +29,142 @@ BOOK_NAMES = [
 ]
 
 
-def unpack(ref):
-    book = ref // 10000
-    ch = (ref // 100) % 100
-    v = ref % 100
-    name = BOOK_NAMES[book - 1] if 1 <= book <= len(BOOK_NAMES) else f'Book{book}'
-    return f'{name} {ch}:{v}'
+def load_text(db):
+    t = db.parse_table('Text')
+    pairs = []
+    for r, n in zip(t['Reference'], t['Number']):
+        try:
+            pairs.append((int(str(r).strip()), int(str(n).strip())))
+        except (ValueError, TypeError):
+            continue
+    return pairs
+
+
+def nt_refs(pairs):
+    """card num -> set of (book, ch, v, sortKey, label)"""
+    out = {}
+    for ref, num in pairs:
+        book = ref // 10000
+        ch = (ref // 100) % 100
+        v = ref % 100
+        name = NT_BOOKS[book - 1] if 1 <= book <= len(NT_BOOKS) else f'Book{book}'
+        out.setdefault(num, set()).add((book, ch, v, book * 1000000 + ch * 1000 + v, name))
+    return out
+
+
+def qumran_refs(db, pairs):
+    """Resolve chapter labels via Books.Chapters; label 'NAME chLabel:v'.
+    Chapter labels expand range entries (f3_7 -> f3..f7). When a chapter component
+    exceeds the label list (fragmentary mss where the Text table uses virtual chapter
+    numbers), fall back to f<N>."""
+    books = db.parse_table('Books')
+    names = [str(x).strip() for x in books['Name']]
+    chapter_lists = []
+    for raw in books['Chapters']:
+        labels = []
+        for x in str(raw).split(','):
+            x = x.strip()
+            if not x:
+                continue
+            if x.isdigit():
+                labels.append(x)
+            elif '_' in x[1:]:
+                try:
+                    a, b = x[1:].split('_')
+                    labels.extend(f'f{n}' for n in range(int(a), int(b) + 1))
+                except ValueError:
+                    labels.append(x)
+            else:
+                labels.append(x)
+        chapter_lists.append(labels)
+    out = {}
+    for ref, num in pairs:
+        book = ref // 10000
+        ch = (ref // 100) % 100
+        v = ref % 100
+        if not (1 <= book <= len(names)):
+            continue
+        labels = chapter_lists[book - 1] if book - 1 < len(chapter_lists) else []
+        if 0 < ch < len(labels):
+            ch_label = labels[ch]
+        else:
+            ch_label = f'f{ch}'
+        sort_key = book * 1000000 + ch * 1000 + v
+        out.setdefault(num, set()).add((book, ch, v, sort_key,
+                                        f'{names[book - 1]} {ch_label}'))
+    return out
+
+
+def collapse(entries):
+    """Group contiguous verses within same (book, ch): (book, ch, v1, v2, sortBase, name)."""
+    items = sorted(entries)  # by book, ch, v
+    groups = []
+    for book, ch, v, key, name in items:
+        if groups and groups[-1][0] == book and groups[-1][1] == ch and groups[-1][3] == v - 1:
+            groups[-1][3] = v
+        else:
+            groups.append([book, ch, v, v, key - (v - v), name])
+    out = []
+    for book, ch, v1, v2, key, name in groups:
+        base = key - v1  # sortKey of the group start recompute: book/ch part + v1
+        if v1 == v2:
+            out.append({'l': f'{name}:{v1}', 'k': base + v1})
+        else:
+            out.append({'l': f'{name}:{v1}-{v2}', 'k': base + v1})
+    return out
 
 
 def main():
-    db = AccessParser(MDB)
-    text = db.parse_table('Text')
-    refs_raw = text['Reference']
-    nums = text['Number']
+    mdb, deck_path, fmt = sys.argv[1], sys.argv[2], sys.argv[3]
+    db = AccessParser(mdb)
+    pairs = load_text(db)
+    print(f'Text rows: {len(pairs)}')
 
-    # card number -> set of verse strings
-    card_refs = {}
-    for r, n in zip(refs_raw, nums):
-        try:
-            ref = int(str(r).strip())
-            num = int(str(n).strip())
-        except (ValueError, TypeError):
-            continue
-        card_refs.setdefault(num, set()).add(ref)
+    if fmt == 'nt':
+        card_map = nt_refs(pairs)
+        make = lambda entries: [
+            {'l': f'{name} {ch}:{v1}' if v1 == v2 else f'{name} {ch}:{v1}-{v2}',
+             'k': book * 1000000 + ch * 1000 + v1}
+            for book, ch, v1, v2, name in collapse_nt(entries)
+        ]
+    else:
+        card_map = qumran_refs(db, pairs)
+        make = collapse
 
-    print(f'Text table rows: {len(refs_raw)}')
-    print(f'distinct card numbers referenced: {len(card_refs)}')
-
-    deck = json.load(open(DECK))
-    cards = deck['cards']
-
-    # compress each card's refs to sorted list, collapsing contiguous verses
-    def collapse(refset):
-        items = sorted(refset)
-        out = []
-        for ref in items:
-            book = ref // 1000000
-            ch = (ref // 1000) % 1000
-            v = ref % 1000
-            if out and out[-1][0] == book and out[-1][1] == ch and out[-1][2] == v - 1:
-                out[-1][2] = v
-            else:
-                out.append([book, ch, v])
-        strs = []
-        for book, ch, v2 in out:
-            name = BOOK_NAMES[book - 1] if 1 <= book <= len(BOOK_NAMES) else f'Book{book}'
-            if v2 > ch * 0 + v2 and False:
-                pass
-            strs.append(f'{name} {ch}:{v2}' if False else (f'{name} {ch}:{v2}'))
-        return strs
-
-    # simpler: no collapsing across chapter boundaries in labels; just list each verse, capped
-    refs_obj = {}
-    covered = 0
-    for c in cards:
+    deck = json.load(open(deck_path))
+    refs = {}
+    for c in deck['cards']:
         num = c.get('num') or int(str(c['id']).rsplit('_', 1)[-1])
-        rs = card_refs.get(num)
-        if not rs:
-            continue
-        covered += 1
-        items = sorted(rs)
-        # group contiguous verses within same chapter: Book ch:v1-v2
-        groups = []
-        for ref in items:
-            book = ref // 10000
-            ch = (ref // 100) % 100
-            v = ref % 100
-            if groups and groups[-1][0] == book and groups[-1][1] == ch and groups[-1][2] == v - 1:
-                groups[-1][2] = v
-            else:
-                groups.append([book, ch, v, v])
-        strs = []
-        for book, ch, v1, v2 in groups:
-            name = BOOK_NAMES[book - 1] if 1 <= book <= len(BOOK_NAMES) else f'Book{book}'
-            if v1 == v2:
-                strs.append(f'{name} {ch}:{v1}')
-            else:
-                strs.append(f'{name} {ch}:{v1}-{v2}')
-        refs_obj[c['id']] = strs
+        entries = card_map.get(num)
+        if entries:
+            refs[c['id']] = make(entries)
 
-    print(f'cards with refs: {covered} / {len(cards)}')
-    sample_id = next(iter(refs_obj))
-    print(f'sample: {sample_id} -> {refs_obj[sample_id][:8]}')
+    # keep refs file lean: emit plain strings when label alone suffices (NT decks use
+    # numeric chapters, so the web app can sort by parsing the label)
+    plain = {}
+    for cid, lst in refs.items():
+        plain[cid] = lst
 
-    out = {'deckId': deck['id'], 'refs': refs_obj}
-    with open('data/greek_nt.refs.json', 'w', encoding='utf-8') as f:
-        json.dump(out, f, ensure_ascii=False, separators=(',', ':'))
-    print('wrote data/greek_nt.refs.json')
+    out_path = deck_path.replace('.json', '.refs.json')
+    with open(out_path, 'w', encoding='utf-8') as f:
+        json.dump({'deckId': deck['id'], 'refs': plain}, f, ensure_ascii=False,
+                  separators=(',', ':'))
+    print(f'cards with refs: {len(refs)} / {len(deck["cards"])}')
+    sample = next(iter(plain))
+    print(f'sample {sample}: {plain[sample][:6]}')
+    print(f'wrote {out_path}')
+
+
+def collapse_nt(entries):
+    """Collapse contiguous verses for NT format: (book, ch, v1, v2, name)."""
+    items = sorted(entries)  # book, ch, v, key, name
+    groups = []
+    for book, ch, v, key, name in items:
+        if groups and groups[-1][0] == book and groups[-1][1] == ch and groups[-1][2] == v - 1:
+            groups[-1][2] = v
+        else:
+            groups.append([book, ch, v, v, name])
+    return [(b, c, v1, v2, n) for b, c, v1, v2, n in groups]
 
 
 if __name__ == '__main__':

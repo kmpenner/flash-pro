@@ -187,12 +187,22 @@ function parseVerseRef(ref) {
 }
 
 function buildVerseLexicon(d, cards, refs) {
-    // verse key -> {label, bookLabel, words: [{num, front}]}
+    // verse key -> {label, words: [{num, front}]}
+    // Refs entries are either "Book C:V" strings (NT decks, sortable by parsing)
+    // or {l: label, k: sortKey} objects (Qumran decks with fragment labels like f14).
     const verses = new Map();
+    let hasObjs = false;
+    const norm = refs && Object.values(refs).some(lst => lst.some(e => typeof e === 'object'));
+    const entries = [];
     for (const c of cards) {
         const cardRefs = refs[c.id];
         if (!cardRefs) continue;
         for (const r of cardRefs) {
+            if (typeof r === 'object') {
+                hasObjs = true;
+                entries.push({ key: r.k, label: r.l, front: c.front, num: c.num || c.id });
+                continue;
+            }
             const m = r.match(/^(\S+) (\d+):(\d+)(?:-(\d+))?$/);
             if (!m) continue;
             const bookIdx = LEX_BOOK_NAMES.indexOf(m[1]);
@@ -201,14 +211,16 @@ function buildVerseLexicon(d, cards, refs) {
             const v1 = parseInt(m[3], 10);
             const v2 = m[4] ? parseInt(m[4], 10) : v1;
             for (let v = v1; v <= v2; v++) {
-                const key = book * 1000000 + ch * 1000 + v;
-                if (!verses.has(key)) {
-                    verses.set(key, { label: `${m[1]} ${ch}:${v}`, bookLabel: m[1],
-                        ch, v, words: [] });
-                }
-                verses.get(key).words.push({ num: c.num || c.id, front: c.front });
+                entries.push({ key: book * 1000000 + ch * 1000 + v,
+                    label: `${m[1]} ${ch}:${v}`, front: c.front, num: c.num || c.id });
             }
         }
+    }
+    for (const e of entries) {
+        if (!verses.has(e.key)) {
+            verses.set(e.key, { label: e.label, words: [] });
+        }
+        verses.get(e.key).words.push({ num: e.num, front: e.front });
     }
     const sorted = [...verses.values()].sort((a, b) => a.key - b.key);
     const rows = sorted.map(vs =>
