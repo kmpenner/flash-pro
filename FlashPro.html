@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Flash! Pro | Premium Flashcard Manager</title>
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -157,7 +157,7 @@
                 </div>
                 <div id="drill-progress" class="panel-title" style="text-align:center"></div>
                 
-                <div class="card-face front-face" id="drill-front">
+                <div class="card-face front-face" id="drill-front" onclick="if (State.drillSession && !State.drillSession.flipped) flipCard();" title="Tap or click to reveal back">
                     <div class="text-muted">Wait for gather...</div>
                 </div>
                 <div class="card-face back-face" id="drill-back" style="display:none"></div>

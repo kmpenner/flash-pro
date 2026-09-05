@@ -52,10 +52,14 @@ body {
         radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.05) 0px, transparent 50%),
         radial-gradient(at 100% 0%, rgba(244, 63, 94, 0.05) 0px, transparent 50%);
     color: var(--text-primary);
+    min-height: 100vh;
+    min-height: 100dvh;
     height: 100vh;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
 }
 
 /* ---- NAV ---- */
@@ -837,4 +841,224 @@ kbd {
     gap: 8px;
     justify-content: flex-end;
 }
+
+/* =====================================================================
+   RESPONSIVE DESIGN & MOBILE OPTIMIZATIONS
+   ===================================================================== */
+
+/* Base touch improvements */
+button, select, input, .li, .card-face, .nav-btn {
+    touch-action: manipulation;
+}
+
+.card-face {
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.card-face:hover {
+    border-color: var(--secondary);
+}
+
+.card-face .card-tap-hint {
+    position: absolute;
+    bottom: 12px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+    font-weight: 500;
+    pointer-events: none;
+}
+
+/* Tablet & Mobile Breakpoint (<= 768px) */
+@media (max-width: 768px) {
+    #topbar {
+        padding: 0 12px;
+        height: auto;
+        min-height: 54px;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .logo {
+        font-size: 1.2em;
+        margin-right: 8px;
+    }
+
+    #topbar nav {
+        order: 3;
+        width: 100%;
+        display: flex;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        padding: 4px 0 8px 0;
+        gap: 6px;
+    }
+
+    #topbar nav::-webkit-scrollbar {
+        display: none;
+    }
+
+    .nav-btn {
+        padding: 7px 12px;
+        font-size: 0.85em;
+        flex-shrink: 0;
+    }
+
+    #topbar .row {
+        gap: 6px;
+    }
+
+    #deck-bar {
+        padding: 8px 12px;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    #deck-select {
+        max-width: 180px;
+        flex: 1 1 auto;
+        text-overflow: ellipsis;
+    }
+
+    #deck-stats {
+        width: 100%;
+        margin-top: 2px;
+        order: 10;
+        font-size: 0.78em;
+    }
+
+    .view {
+        padding: 14px 12px;
+    }
+
+    /* Grids stack vertically on mobile */
+    .grid2, .grid3 {
+        grid-template-columns: 1fr !important;
+        gap: 14px;
+    }
+
+    /* Select View */
+    .select-top {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .workflow-step-bar {
+        padding: 10px 12px;
+        gap: 8px;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .workflow-arrow {
+        display: none;
+    }
+
+    .select-bottom {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .select-bottom .btn {
+        flex: 1 1 auto;
+    }
+
+    /* Drill View Mobile UX */
+    .drill-card-area {
+        gap: 16px;
+    }
+
+    .card-face {
+        padding: 24px 16px;
+        min-height: 200px;
+        font-size: 1.5em;
+    }
+
+    .drill-btns {
+        display: flex;
+        gap: 10px;
+        width: 100%;
+    }
+
+    .drill-btns .btn {
+        min-height: 48px;
+        font-size: 0.95em;
+    }
+
+    .drill-btns .btn-primary {
+        flex: 1;
+        width: auto !important;
+    }
+
+    .drill-stats {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        padding: 14px;
+    }
+
+    .stat-v {
+        font-size: 1.25em;
+    }
+
+    /* Modals become full-screen friendly sheets on mobile */
+    .modal, .modal-wide {
+        width: 96%;
+        max-width: 96%;
+        max-height: 94vh;
+        padding: 18px 16px;
+        border-radius: var(--radius-md);
+    }
+
+    .catalog-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .catalog-search-input {
+        min-width: 100%;
+    }
+
+    /* Bundles View drag/select buttons */
+    #view-bundles .grid3 {
+        grid-template-columns: 1fr !important;
+    }
+    
+    #view-bundles .grid3 > .col:nth-child(2) {
+        flex-direction: row !important;
+        justify-content: center;
+    }
+}
+
+/* Small Smartphone Breakpoint (<= 480px) */
+@media (max-width: 480px) {
+    .logo {
+        font-size: 1.1em;
+    }
+
+    .nav-btn {
+        padding: 6px 10px;
+        font-size: 0.8em;
+    }
+
+    .btn {
+        padding: 8px 14px;
+    }
+
+    .card-face {
+        min-height: 180px;
+        padding: 18px 12px;
+        font-size: 1.35em;
+    }
+
+    .drill-shortcuts-bar {
+        display: none; /* Hide physical keyboard shortcut bar on phones */
+    }
+
+    .drill-btns .kbd-badge {
+        display: none; /* Hide [Space], [Y], [N] keyboard tags on phones */
+    }
+}
+
 
