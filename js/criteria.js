@@ -50,6 +50,16 @@ function renderSelectView() {
     if (cat_l) {
         cat_l.innerHTML = d.categories.map(c => `<div class="li${State.selCatIds.has(c.id) ? ' sel2' : ''}" onclick="toggleCat('${c.id}')">${Utils.escH(c.name)}</div>`).join('') || '<div class="empty-msg">No categories</div>';
     }
+
+    // Auto-select sort field for deck: default to frequency if deck has positive frequency data
+    const sortEl = document.getElementById('gather-sort');
+    if (sortEl) {
+        const hasFrequencyData = d.cards && d.cards.some(c => (c.frequency || 0) > 0);
+        if (!State.userSelectedSort) {
+            sortEl.value = hasFrequencyData ? 'frequency_desc' : 'overdue';
+        }
+    }
+
     renderGatheredList();
 }
 
@@ -118,25 +128,55 @@ function gatherCards() {
         }
     }
 
-    // Rank matched cards according to the pure spaced repetition formula:
-    // Overdue = (Now - LastRightTime) - (LastRightTime - LastWrongTime)
-    // - Missed cards (aWrong > aRight) have negative intervals and highest overdue scores (~53 yrs)
-    // - Unstudied cards (default 2000-01-01) have overdue scores of ~26 yrs and preserve textbook order
-    // - Actively reviewed cards are sorted by elapsed overdue duration relative to their interval
-    matched.sort((a, b) => {
+    // Determine sort field
+    const hasFrequencyData = d.cards && d.cards.some(c => (c.frequency || 0) > 0);
+    const sortEl = document.getElementById('gather-sort');
+    const sortMode = (sortEl && sortEl.value) ? sortEl.value : (hasFrequencyData ? 'frequency_desc' : 'overdue');
+
+    const getOverdueDiff = (a, b) => {
         const ma = a[a._dir] || {};
         const mb = b[b._dir] || {};
         const aRight = ma.dateLastRight || DEFAULT_DATE;
         const bRight = mb.dateLastRight || DEFAULT_DATE;
         const aWrong = ma.dateLastWrong || DEFAULT_DATE;
         const bWrong = mb.dateLastWrong || DEFAULT_DATE;
-
         const aInterval = aRight - aWrong;
         const bInterval = bRight - bWrong;
         const aOverdue = (nowMs - aRight) - aInterval;
         const bOverdue = (nowMs - bRight) - bInterval;
         return bOverdue - aOverdue;
-    });
+    };
+
+    if (sortMode === 'frequency_desc') {
+        matched.sort((a, b) => {
+            const diff = (b.frequency || 0) - (a.frequency || 0);
+            return diff !== 0 ? diff : getOverdueDiff(a, b);
+        });
+    } else if (sortMode === 'frequency_asc') {
+        matched.sort((a, b) => {
+            const diff = (a.frequency || 0) - (b.frequency || 0);
+            return diff !== 0 ? diff : getOverdueDiff(a, b);
+        });
+    } else if (sortMode === 'order') {
+        matched.sort((a, b) => {
+            const na = typeof a.num === 'number' ? a.num : (parseInt(a.num, 10) || 0);
+            const nb = typeof b.num === 'number' ? b.num : (parseInt(b.num, 10) || 0);
+            if (na !== nb) return na - nb;
+            return String(a.id || '').localeCompare(String(b.id || ''));
+        });
+    } else if (sortMode === 'front') {
+        matched.sort((a, b) => String(a.front || '').localeCompare(String(b.front || '')));
+    } else if (sortMode === 'back') {
+        matched.sort((a, b) => String(a.back || '').localeCompare(String(b.back || '')));
+    } else if (sortMode === 'random') {
+        for (let i = matched.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [matched[i], matched[j]] = [matched[j], matched[i]];
+        }
+    } else {
+        // Default: Spaced Repetition (overdue)
+        matched.sort(getOverdueDiff);
+    }
 
     const max = getSessionLimit();
     State.gatheredCards = matched.slice(0, max);

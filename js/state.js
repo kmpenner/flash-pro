@@ -19,6 +19,7 @@ const State = {
     bvSelBundleCards: new Set(),
     drillCountdownTimer: null,
     drillCountdownSec: 0,
+    userSelectedSort: false,
 
     get deck() { return this.decks.find(d => d.id === this.curDeckId) || null }
 };

@@ -137,6 +137,18 @@
                     <label class="flab">Session Limit</label>
                     <input type="number" id="max-cards" value="10" min="1" max="500" style="width:80px" onchange="setSessionLimit(this.value)">
                 </div>
+                <div class="col" style="gap:2px">
+                    <label class="flab">Sort By</label>
+                    <select id="gather-sort" onchange="State.userSelectedSort = true; if (typeof gatherCards === 'function') gatherCards();">
+                        <option value="frequency_desc">Frequency (High → Low)</option>
+                        <option value="frequency_asc">Frequency (Low → High)</option>
+                        <option value="overdue">Spaced Repetition (Overdue)</option>
+                        <option value="order">Textbook Order</option>
+                        <option value="front">Front Text (A–Z)</option>
+                        <option value="back">Back Text (A–Z)</option>
+                        <option value="random">Shuffle / Random</option>
+                    </select>
+                </div>
                 <span id="gathered-count" class="text-secondary" style="font-size: 0.85em; font-weight: 500;"></span>
             </div>
             <div class="col" style="flex-shrink: 0; min-height: 140px;">

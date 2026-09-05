@@ -62,6 +62,7 @@ function switchDeck(id) {
     State.gatheredCards = [];
     State.selBundleIds.clear();
     State.selCatIds.clear();
+    State.userSelectedSort = false;
     renderAll();
     if (typeof gatherCards === 'function') gatherCards();
 }
