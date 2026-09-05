@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="color-scheme" content="dark light">
     <title>Flash! Pro | Premium Flashcard Manager</title>
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,6 +12,17 @@
     <!-- Icons -->
     <script src="https://unpkg.com/lucide@0.475.0/dist/umd/lucide.min.js"></script>
     <link rel="stylesheet" href="style.css">
+    <script>
+        // Anti-flash: apply saved theme before first paint
+        (function () {
+            try {
+                var t = localStorage.getItem('flashpro_theme') || 'dark';
+                document.documentElement.setAttribute('data-theme', t);
+            } catch (_) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
 </head>
 <body>
     <header id="topbar">
@@ -43,6 +55,9 @@
         </nav>
         <div style="flex:1"></div>
         <div class="row">
+            <button class="btn btn-sm btn-secondary" onclick="cycleTheme()" id="theme-toggle" title="Theme: dark (click to change)">
+                <i data-lucide="moon" id="theme-icon"></i>
+            </button>
             <button class="btn btn-sm btn-secondary" onclick="openHelpModal()" title="Help, Tutorial & Shortcuts">
                 <i data-lucide="help-circle"></i> Help
             </button>
@@ -463,6 +478,16 @@
                     <p class="text-secondary">Customize how your flashcards look during study sessions.</p>
                 </header>
                 
+                <div class="panel col" style="margin-bottom: 24px;">
+                    <div class="panel-title">Visual Theme</div>
+                    <div class="row" style="gap: 12px; flex-wrap: wrap;">
+                        <button class="btn btn-secondary" onclick="applyTheme('dark')"><i data-lucide="moon"></i> Dark</button>
+                        <button class="btn btn-secondary" onclick="applyTheme('light')"><i data-lucide="sun"></i> Light</button>
+                        <button class="btn btn-secondary" onclick="applyTheme('classic')"><i data-lucide="tv"></i> Classic (Win 98/2000/XP)</button>
+                        <button class="btn btn-secondary" onclick="applyTheme('system')"><i data-lucide="monitor"></i> Auto (System)</button>
+                    </div>
+                </div>
+
                 <div class="panel col" style="margin-bottom: 24px;">
                     <div class="panel-title">Typography Scaling</div>
                     <div class="row" style="gap: 20px;">

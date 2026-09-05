@@ -1,4 +1,50 @@
 // =====================================================================
+// THEME (light / dark / system)
+// =====================================================================
+
+const THEMES = ['dark', 'light', 'classic', 'system'];
+const THEME_ICONS = { dark: 'moon', light: 'sun', classic: 'tv', system: 'monitor' };
+
+function getTheme() {
+    try { return localStorage.getItem('flashpro_theme') || 'dark'; } catch (_) { return 'dark'; }
+}
+
+function applyTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    try { localStorage.setItem('flashpro_theme', t); } catch (_) {}
+    updateThemeButton();
+}
+
+function cycleTheme() {
+    const next = THEMES[(THEMES.indexOf(getTheme()) + 1) % THEMES.length];
+    applyTheme(next);
+}
+
+function updateThemeButton() {
+    const t = getTheme();
+    const btn = document.getElementById('theme-toggle');
+    const icon = document.getElementById('theme-icon');
+    if (btn) {
+        btn.title = `Theme: ${t} (click to change)`;
+        const label = btn.querySelector ? btn.querySelector('.theme-label') : null;
+        if (label) label.textContent = t;
+    }
+    if (icon && icon.setAttribute) {
+        icon.setAttribute('data-lucide', THEME_ICONS[t] || 'moon');
+        if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+    }
+}
+
+// Live-follow OS preference while in system mode
+if (typeof window.matchMedia === 'function') {
+    try {
+        window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+            if (getTheme() === 'system') updateThemeButton();
+        });
+    } catch (_) {}
+}
+
+// =====================================================================
 // APP NAVIGATION & SHELL
 // =====================================================================
 
@@ -26,6 +72,7 @@ function showView(v) {
 }
 
 function renderAll() {
+    updateThemeButton();
     renderDeckBar();
     if (typeof renderSelectView === 'function') renderSelectView();
     renderEditCards();

@@ -51,7 +51,8 @@ function renderCardFace(elId, text, tmpl, head, fontSize, side) {
     const el = document.getElementById(elId);
     if (!el) return;
     if (tmpl) {
-        const html = `<html><head>${head}<style>body{margin:8px;color:#dde1ec;font-size:${fontSize}px;display:flex;align-items:center;justify-content:center;min-height:80px;word-break:break-word;text-align:center;}*{box-sizing:border-box;}</style></head><body>${tmpl.replace(/\{\{front\}\}/g, Utils.escH(text)).replace(/\{\{back\}\}/g, Utils.escH(text))}</body></html>`;
+        const faceColor = (getComputedStyle(document.documentElement).getPropertyValue('--card-face-text') || '#dde1ec').trim();
+        const html = `<html><head>${head}<style>body{margin:8px;color:${faceColor};font-size:${fontSize}px;display:flex;align-items:center;justify-content:center;min-height:80px;word-break:break-word;text-align:center;}*{box-sizing:border-box;}</style></head><body>${tmpl.replace(/\{\{front\}\}/g, Utils.escH(text)).replace(/\{\{back\}\}/g, Utils.escH(text))}</body></html>`;
         el.innerHTML = `<iframe srcdoc="${Utils.escAttr(html)}" style="width:100%;height:100%;min-height:140px;border:none;background:transparent"></iframe>`;
     } else {
         el.style.fontSize = fontSize + 'px';
