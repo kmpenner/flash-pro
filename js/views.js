@@ -441,6 +441,7 @@ function resetSettings() {
 function renderHelpContent(activeTab) {
     const tabs = [
         { id: 'quickstart', label: '🎓 Quick Start' },
+        { id: 'library', label: '🏛️ Curriculum Library' },
         { id: 'shortcuts', label: '⌨️ Shortcuts' },
         { id: 'spacedrep', label: '🧠 Spaced Repetition' },
         { id: 'textbooks', label: '📚 Textbooks & Import' },
@@ -453,8 +454,8 @@ function renderHelpContent(activeTab) {
         body += `
             <div class="col" style="gap: 10px;">
                 <div class="help-card">
-                    <h4>1. Select Your Lesson</h4>
-                    <p>Choose your chapter from the <b>Active Deck</b> dropdown at the top (e.g. <i>Athenaze Chapter 1</i>). Under <b>Bundles</b>, optionally click <b>Chapter 1α</b> or <b>1β</b> to focus on a specific reading.</p>
+                    <h4>1. Select Your Lesson or Load from Library</h4>
+                    <p>Choose your chapter from the <b>Active Deck</b> dropdown at the top, or click the <b style="color:var(--secondary)">📖 Library</b> button to browse and load from <b>24 preloaded textbooks</b> (over 71,000 cards in Greek, Hebrew, Latin, French, Spanish, German, and Russian!). Under <b>Bundles</b>, click any chapter or section to focus your session.</p>
                 </div>
                 <div class="help-card">
                     <h4>2. Start Session</h4>
@@ -462,11 +463,34 @@ function renderHelpContent(activeTab) {
                 </div>
                 <div class="help-card">
                     <h4>3. Flip & Judge Honestly</h4>
-                    <p>Press <kbd>Space</kbd> or <kbd>Enter</kbd> to reveal the answer. If you remembered it, press <kbd>Y</kbd> (Correct). If you missed it or hesitated, press <kbd>N</kbd> (Incorrect).</p>
+                    <p>Tap the card or press <kbd>Space</kbd> / <kbd>Enter</kbd> to reveal the answer. If you remembered it, tap or press <kbd>Y</kbd> (Correct). If you missed it or hesitated, tap or press <kbd>N</kbd> (Incorrect).</p>
                 </div>
                 <div class="help-card">
                     <h4>4. Cognitive Mastery</h4>
                     <p>Flash! Pro automatically re-queues cards you miss into the next batch so you correct mistakes right away. As you get them right, it spaces them out to lock them into long-term memory!</p>
+                </div>
+            </div>
+        `;
+    } else if (activeTab === 'library') {
+        body += `
+            <div class="col" style="gap: 10px;">
+                <div class="help-card">
+                    <h4>🏛️ 24 Built-In Curriculum Textbooks (71,607 Cards)</h4>
+                    <p>Click the <b>Library</b> button in the deck bar at any time to access complete preloaded flashcard decks for major ancient and modern language curricula:</p>
+                    <ul style="margin: 8px 0 0 18px; padding: 0;">
+                        <li style="margin-bottom: 6px;"><b>Ancient & Biblical Greek:</b> Athenaze Complete MDB (580 cards), Athenaze Extended Lexicon (1,220 cards), Greek New Testament (6,428 cards), Mounce <i>Basics of Biblical Greek</i> (1,152 cards), Dobson <i>Learn New Testament Greek</i>, and JACT <i>Reading Greek</i>.</li>
+                        <li style="margin-bottom: 6px;"><b>Biblical Hebrew & Aramaic:</b> Hebrew Old Testament (12,873 cards), Kelley <i>Biblical Hebrew</i>, Pratico-Van Pelt <i>Basics of Biblical Hebrew</i>, Dobson <i>Learn Biblical Hebrew</i>, and Biblical Aramaic.</li>
+                        <li style="margin-bottom: 6px;"><b>Latin & Modern Languages:</b> Wheelock's Latin (4,869 cards), Oxford Latin Course, Collins French, German, Spanish, and Russian lexicons.</li>
+                    </ul>
+                </div>
+                <div class="help-card">
+                    <h4>Instant Loading & Offline JSON Downloads</h4>
+                    <p>In the Library modal, you can filter by language or search by textbook author. Click <b>Load Into App</b> to immediately activate the deck with all bundled chapters, or click <b>JSON</b> to download a standalone offline backup.</p>
+                    <div style="margin-top: 10px;">
+                        <button class="btn btn-sm btn-primary" onclick="closeModal(); openCurriculumLibraryModal();">
+                            <i data-lucide="book-open"></i> Open Curriculum Library Now
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
@@ -476,7 +500,8 @@ function renderHelpContent(activeTab) {
                 <div class="help-card">
                     <h4>Study Screen (Drill Mode)</h4>
                     <ul style="margin: 8px 0 0 18px; padding: 0;">
-                        <li style="margin-bottom: 6px;"><kbd>Space</kbd> or <kbd>Enter</kbd> or <kbd>→</kbd> : <b>Flip Card</b> to reveal English/Greek.</li>
+                        <li style="margin-bottom: 6px;"><kbd>Space</kbd> or <kbd>Enter</kbd> or <kbd>→</kbd> : <b>Flip Card</b> to reveal English/target language.</li>
+                        <li style="margin-bottom: 6px;"><b>Direct Tap</b> on Card Face : Also flips the card immediately (great for phones and tablets!).</li>
                         <li style="margin-bottom: 6px;"><kbd>Y</kbd> : Mark <b>CORRECT</b> (progresses in spaced repetition).</li>
                         <li style="margin-bottom: 6px;"><kbd>N</kbd> : Mark <b>INCORRECT</b> (scheduled for next round review).</li>
                         <li style="margin-bottom: 6px;"><kbd>←</kbd> (Left Arrow) : <b>Undo</b> last judgment (lossless rollback).</li>
@@ -484,8 +509,8 @@ function renderHelpContent(activeTab) {
                     </ul>
                 </div>
                 <div class="help-card">
-                    <h4>Hands on the Keyboard</h4>
-                    <p>You never need to touch the mouse during a study session. Use your thumb on <kbd>Space</kbd> to flip, and fingers on <kbd>Y</kbd>/<kbd>N</kbd> to judge!</p>
+                    <h4>Hands on the Keyboard or Thumb on the Phone</h4>
+                    <p>On desktop, keep your hands on the keyboard (<kbd>Space</kbd> to flip, <kbd>Y</kbd>/<kbd>N</kbd> to judge). On mobile phones, tap the card face to flip, then use large thumb buttons to mark your score!</p>
                 </div>
             </div>
         `;
@@ -515,14 +540,14 @@ function renderHelpContent(activeTab) {
         body += `
             <div class="col" style="gap: 10px;">
                 <div class="help-card">
-                    <h4>All 16 Athenaze Book I Chapters & Authentic MDB Included</h4>
-                    <p>Use the <b>Active Deck</b> dropdown at the top to switch between Chapters 1 through 16, the <b>Master Deck</b>, or the authentic <b>Athenaze Complete (Authentic MDB — 580 Cards)</b> with all 48 reading bundles and historical study metrics. In <b>Settings</b>, you can also load the <b>Extended Lexicon (1,220 Cards)</b> or download the full JSON datasets for offline archival.</p>
+                    <h4>Preloaded Curriculum Library (24 Textbooks)</h4>
+                    <p>Click the <b>Library</b> button in the deck bar to load any of the 24 canonical textbook databases (71,607 cards total) covering Athenaze, Mounce, Wheelock, Kelley, Dobson, JACT, and more. You can also switch between Chapters 1 through 16 or the authentic 580-card MDB database directly from the <b>Active Deck</b> dropdown.</p>
                 </div>
                 <div class="help-card">
-                    <h4>Importing Other Textbooks (Latin, Hebrew, French, etc.)</h4>
-                    <p>You can add vocabulary lists from any textbook in 3 quick steps:</p>
+                    <h4>Importing Custom Textbooks & Wordlists</h4>
+                    <p>You can add vocabulary lists from any other textbook or spreadsheet in 3 quick steps:</p>
                     <ul style="margin: 8px 0 0 18px; padding: 0;">
-                        <li style="margin-bottom: 6px;">1. Click <b style="color:var(--secondary)">+ New</b> at the top to create a deck (e.g. <i>Wheelock's Latin</i>).</li>
+                        <li style="margin-bottom: 6px;">1. Click <b style="color:var(--secondary)">+ New</b> at the top to create a deck.</li>
                         <li style="margin-bottom: 6px;">2. Switch to the <b>I/O</b> tab in the top navigation bar.</li>
                         <li style="margin-bottom: 6px;">3. Paste tab-separated or comma-separated cards (from Excel, Google Sheets, or Quizlet) into <b>Raw Ingest Buffer</b>, click <b>Validate & Map</b>, then <b>Import</b>!</li>
                     </ul>
