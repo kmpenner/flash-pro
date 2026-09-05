@@ -99,6 +99,7 @@ function updateDeckStats() {
     if (!d) return;
     const statsEl = document.getElementById('deck-stats');
     if (statsEl) {
+        if (!d.cards) { statsEl.textContent = `${d.name} — loading…`; return; } // stub deck
         statsEl.textContent = `${d.cards.length} cards | ${d.bundles.length} bundles | ${d.categories.length} categories`;
     }
 }
@@ -170,6 +171,7 @@ function handleLoadDeck(e) {
 
 function renderEditCards() {
     const d = State.deck; if (!d) return;
+    if (!d.cards) return; // stub deck: body still loading
     State.editCards = [...d.cards];
     renderEditCard();
 }
@@ -375,7 +377,7 @@ function deleteTableRow() {
 // =====================================================================
 
 function renderBundleView() {
-    const d = State.deck; if (!d) return;
+    const d = State.deck; if (!d || !d.cards || !d.bundles) return; // stub deck guard
     const q = (document.getElementById('bundle-card-search')?.value || '').toLowerCase();
     const cards = q ? d.cards.filter(c => c.front.toLowerCase().includes(q) || c.back.toLowerCase().includes(q)) : d.cards;
     const bCardsEl = document.getElementById('bv-cards');
@@ -914,9 +916,9 @@ async function loadCatalogDeck(deckId) {
             criteria,
             cards
         };
-
+        newDeck.catalogFile = item.file;   // read-only source: rehydrated from repo on load
         State.decks.push(newDeck);
-        save();
+        saveCatalogStub(newDeck);
         switchDeck(newDeck.id);
         closeModal();
     } catch (err) {

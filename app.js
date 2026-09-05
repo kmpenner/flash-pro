@@ -148,6 +148,19 @@ function init() {
     renderAll();
     gatherCards();
 
+    // Rehydrate catalog decks (stub-only in storage) from their repo data files,
+    // then refresh the UI with their full card lists.
+    if (typeof rehydrateCatalogDecks === 'function') {
+        rehydrateCatalogDecks().then(() => {
+            renderAll();
+            gatherCards();
+            const cur = State.deck;
+            if (cur?._unavailable) {
+                console.warn(`Current deck "${cur.name}" body unavailable offline; content views will be empty until reconnected.`);
+            }
+        });
+    }
+
     // Check for direct drill URL query parameter (?drill=1 or ?start=1)
     let isDirectDrill = false;
     try {

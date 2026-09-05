@@ -208,15 +208,146 @@ function mkAthenaze1aDeck() {
 // =====================================================================
 // STORE & PERSISTENCE
 // =====================================================================
+// Catalog decks (loaded from the repo's data/ files) are READ-ONLY bodies:
+// localStorage keeps only a stub (id, name, catalogFile, selections) plus the
+// user's per-card study metrics. The card/panel content is rehydrated from the
+// repo on load. This keeps a multi-corpus workspace well inside the ~5MB
+// localStorage quota (Greek NT alone is 3MB; Qumran 2MB+).
+// User decks (Athenaze, imported, hand-built) persist in full, as before.
+
+const CATALOG_STUB_FIELDS = ['id', 'name', 'createdDate', 'src', 'language',
+    'catalogFile', 'metrics', 'criteriaSelection', 'userEdits'];
+
+function isCatalogDeck(d) { return !!(d && d.catalogFile); }
+
+function makeCatalogStub(d) {
+    // metrics: cardId -> {fb:{...}, bf:{...}} but only for cards with any activity
+    const metrics = {};
+    for (const c of d.cards) {
+        const fb = c.fb || {}, bf = c.bf || {};
+        const active = (fb.timesRight || fb.timesWrong || bf.timesRight || bf.timesWrong ||
+            (fb.dateLastRight && fb.dateLastRight !== DEFAULT_DATE) ||
+            (fb.dateLastWrong && fb.dateLastWrong !== DEFAULT_DATE) ||
+            (bf.dateLastRight && bf.dateLastRight !== DEFAULT_DATE) ||
+            (bf.dateLastWrong && bf.dateLastWrong !== DEFAULT_DATE));
+        if (active) metrics[c.id] = { fb: { ...fb }, bf: { ...bf } };
+    }
+    // user content edits on card fronts/backs (catalog cards are otherwise immutable)
+    const userEdits = {};
+    for (const c of d.cards) {
+        if (c._userEdited) {
+            userEdits[c.id] = { front: c.front, back: c.back, frequency: c.frequency, categoryId: c.categoryId };
+        }
+    }
+    return {
+        id: d.id, name: d.name, createdDate: d.createdDate,
+        src: d.src, language: d.language, catalogFile: d.catalogFile,
+        metrics, userEdits,
+        criteriaSelection: State.selCriteriaId === d.id ? '' : undefined,
+    };
+}
+
+function rehydrateCatalogDeck(stub, full) {
+    // apply saved study metrics onto the freshly fetched read-only body
+    const metrics = stub.metrics || {};
+    for (const c of full.cards) {
+        const m = metrics[c.id];
+        if (m) {
+            c.fb = { ...c.fb, ...m.fb };
+            c.bf = { ...c.bf, ...m.bf };
+        }
+    }
+    const edits = stub.userEdits || {};
+    for (const c of full.cards) {
+        const e = edits[c.id];
+        if (e) { c.front = e.front; c.back = e.back; c.frequency = e.frequency; c.categoryId = e.categoryId; }
+    }
+    full.catalogFile = stub.catalogFile;
+    full.createdDate = stub.createdDate || full.createdDate;
+    return full;
+}
+
+function fetchCatalogDeckFile(file) {
+    return fetch(file).then(resp => {
+        if (!resp.ok) throw new Error(`HTTP ${resp.status} loading ${file}`);
+        return resp.json();
+    });
+}
 
 const Store = {
     load() { return JSON.parse(localStorage.getItem('flashpro_decks') || '[]') },
-    save(decks) { localStorage.setItem('flashpro_decks', JSON.stringify(decks)) },
+    save(decks) {
+        const out = decks.map(d => isCatalogDeck(d) ? makeCatalogStub(d) : d);
+        try {
+            localStorage.setItem('flashpro_decks', JSON.stringify(out));
+        } catch (e) {
+            // fall back: drop metrics from stubs before giving up
+            const lean = out.map(d => d.metrics ? { ...d, metrics: {} } : d);
+            try { localStorage.setItem('flashpro_decks', JSON.stringify(lean)); }
+            catch (_) { alert('Storage full: could not save. Export your decks from the I/O tab.'); }
+        }
+    },
     currentId() { return localStorage.getItem('flashpro_cur') || '' },
     setCur(id) { localStorage.setItem('flashpro_cur', id) },
 };
 
 function save() { Store.save(State.decks); }
+
+// Persist only the stub for one catalog deck without a full-state save.
+// For catalog decks, save() serializes all decks; the stub form makes that cheap
+// regardless, so plain save() is fine — this alias documents intent.
+function saveCatalogStub() { save(); }
+
+// Rehydrate all catalog stubs from their repo files at startup.
+// Returns a promise resolving when every stub has a full body (or fell back to stub-only).
+function rehydrateCatalogDecks() {
+    const jobs = [];
+    for (const d of State.decks) {
+        if (isCatalogDeck(d) && !d.cards) {
+            jobs.push(
+                fetchCatalogDeckFile(d.catalogFile)
+                    .then(full => Object.assign(d, rehydrateCatalogDeck(d, convertCatalogCards(full))))
+                    .catch(err => {
+                        console.warn(`Could not rehydrate "${d.name}": ${err.message}`);
+                        d._unavailable = true;
+                    })
+            );
+        }
+    }
+    return Promise.all(jobs);
+}
+
+// Convert a raw catalog JSON body into app-shaped deck (same mapping as loadCatalogDeck).
+function convertCatalogCards(deckData) {
+    const categories = (deckData.categories || []).map(c => typeof c === 'string' ? { id: Utils.uid(), name: c } : c);
+    const cards = (deckData.cards || []).map((c, i) => {
+        const fb = c.fb || { timesRight: c.timesRight || 0, timesWrong: c.timesWrong || 0, timesRightSinceWrong: c.timesRightSinceWrong || 0, dateLastRight: DEFAULT_DATE, dateLastWrong: DEFAULT_DATE };
+        const bf = c.bf || { timesRight: c.backTimesRight || 0, timesWrong: c.backTimesWrong || 0, timesRightSinceWrong: c.backTimesRightSinceWrong || 0, dateLastRight: DEFAULT_DATE, dateLastWrong: DEFAULT_DATE };
+        return {
+            id: c.id ? String(c.id) : `${deckData.id || 'deck'}_${i + 1}`,
+            num: c.num || c.number || (i + 1),
+            front: c.front || '',
+            back: c.back || '',
+            categoryId: c.categoryId || categories[0]?.id || '',
+            category: c.category || categories[0]?.name || '',
+            frequency: c.frequency || 1,
+            editedDate: c.editedDate || Date.now(),
+            fb, bf
+        };
+    });
+    return {
+        id: deckData.id,
+        name: deckData.name,
+        createdDate: deckData.createdDate,
+        src: deckData.src,
+        language: deckData.language,
+        settings: deckData.settings || { fontSize: 24, maximumSelected: 10, headTmpl: '', frontTmpl: '', backTmpl: '' },
+        categories,
+        bundles: deckData.bundles || [],
+        criteria: deckData.criteria || [],
+        cards
+    };
+}
 
 function getSessionLimit() {
     const el = document.getElementById('max-cards');

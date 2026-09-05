@@ -38,6 +38,7 @@ function evaluateCriteria(logic, card_obj, dir, throwOnError = false) {
 
 function renderSelectView() {
     const d = State.deck; if (!d) return;
+    if (!d.criteria || !d.bundles || !d.categories) return; // stub deck: body still loading
     const cl = document.getElementById('criteria-list');
     if (cl) {
         cl.innerHTML = d.criteria.map(c => `<div class="li${State.selCriteriaId === c.id ? ' sel' : ''}" onclick="selectCriteria('${c.id}')">${Utils.escH(c.name)}</div>`).join('') || '<div class="empty-msg">No criteria</div>';
@@ -114,7 +115,7 @@ function renderGatheredList() {
 }
 
 function gatherCards() {
-    const d = State.deck; if (!d) return;
+    const d = State.deck; if (!d || !d.cards) return;
     const crit = d.criteria.find(c => c.id === State.selCriteriaId);
     const logic = crit ? crit.logic : '';
     const dirEl = document.getElementById('drill-direction');
@@ -204,7 +205,7 @@ function gatherCards() {
 // =====================================================================
 
 function renderCriteriaView() {
-    const d = State.deck; if (!d) return;
+    const d = State.deck; if (!d || !d.criteria) return; // stub deck guard
     const mgrList = document.getElementById('criteria-mgr-list');
     if (mgrList) {
         mgrList.innerHTML = d.criteria.map(c => `<div class="li${State.selCritMgrId === c.id ? ' sel' : ''}" onclick="selectCritMgr('${c.id}')">${Utils.escH(c.name)}</div>`).join('') || '<div class="empty-msg">No criteria</div>';
@@ -242,7 +243,7 @@ const DRILL_PRESETS = [
 ];
 
 function addDrillPreset(idx) {
-    const d = State.deck; if (!d) return;
+    const d = State.deck; if (!d || !d.criteria) return; // stub deck guard
     const preset = DRILL_PRESETS[idx];
     if (!preset) return;
     const existing = d.criteria.find(c => c.name === preset.name);
@@ -261,7 +262,7 @@ function addDrillPreset(idx) {
 }
 
 function saveCriteria() {
-    const d = State.deck; if (!d) return;
+    const d = State.deck; if (!d || !d.criteria) return; // stub deck guard
     const name = (document.getElementById('crit-name')?.value || '').trim();
     const logic = (document.getElementById('crit-logic')?.value || '').trim();
     if (!name) { alert('Enter a name.'); return; }
