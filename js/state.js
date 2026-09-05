@@ -30,6 +30,7 @@ const Utils = {
     dayMs: 86400000,
     escH: (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
     escAttr: (s) => String(s || '').replace(/"/g, '&quot;'),
+    escJs: (s) => String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/</g, '\\x3c').replace(/>/g, '\\x3e').replace(/&(?!#\d+;|#x[0-9a-f]+;|[a-z]+;)/gi, '\\x26'),
     dlBlob: (blob, name) => {
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);

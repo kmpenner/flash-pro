@@ -41,15 +41,15 @@ function renderSelectView() {
     if (!d.criteria || !d.bundles || !d.categories) return; // stub deck: body still loading
     const cl = document.getElementById('criteria-list');
     if (cl) {
-        cl.innerHTML = d.criteria.map(c => `<div class="li${State.selCriteriaId === c.id ? ' sel' : ''}" onclick="selectCriteria('${c.id}')">${Utils.escH(c.name)}</div>`).join('') || '<div class="empty-msg">No criteria</div>';
+        cl.innerHTML = d.criteria.map(c => `<div class="li${State.selCriteriaId === c.id ? ' sel' : ''}" onclick="selectCriteria('${Utils.escJs(c.id)}')">${Utils.escH(c.name)}</div>`).join('') || '<div class="empty-msg">No criteria</div>';
     }
     const bl = document.getElementById('bundle-list');
     if (bl) {
-        bl.innerHTML = d.bundles.map(b => `<div class="li${State.selBundleIds.has(b.id) ? ' sel2' : ''}" onclick="toggleBundle('${b.id}')">${Utils.escH(b.name)}<span class="badge">${b.cardIds.length}</span></div>`).join('') || '<div class="empty-msg">No bundles</div>';
+        bl.innerHTML = d.bundles.map(b => `<div class="li${State.selBundleIds.has(b.id) ? ' sel2' : ''}" onclick="toggleBundle('${Utils.escJs(b.id)}')">${Utils.escH(b.name)}<span class="badge">${b.cardIds.length}</span></div>`).join('') || '<div class="empty-msg">No bundles</div>';
     }
     const cat_l = document.getElementById('cat-list');
     if (cat_l) {
-        cat_l.innerHTML = d.categories.map(c => `<div class="li${State.selCatIds.has(c.id) ? ' sel2' : ''}" onclick="toggleCat('${c.id}')">${Utils.escH(c.name)}</div>`).join('') || '<div class="empty-msg">No categories</div>';
+        cat_l.innerHTML = d.categories.map(c => `<div class="li${State.selCatIds.has(c.id) ? ' sel2' : ''}" onclick="toggleCat('${Utils.escJs(c.id)}')">${Utils.escH(c.name)}</div>`).join('') || '<div class="empty-msg">No categories</div>';
     }
 
     // Auto-select sort field for deck: default to frequency if deck has positive frequency data
@@ -208,7 +208,7 @@ function renderCriteriaView() {
     const d = State.deck; if (!d || !d.criteria) return; // stub deck guard
     const mgrList = document.getElementById('criteria-mgr-list');
     if (mgrList) {
-        mgrList.innerHTML = d.criteria.map(c => `<div class="li${State.selCritMgrId === c.id ? ' sel' : ''}" onclick="selectCritMgr('${c.id}')">${Utils.escH(c.name)}</div>`).join('') || '<div class="empty-msg">No criteria</div>';
+        mgrList.innerHTML = d.criteria.map(c => `<div class="li${State.selCritMgrId === c.id ? ' sel' : ''}" onclick="selectCritMgr('${Utils.escJs(c.id)}')">${Utils.escH(c.name)}</div>`).join('') || '<div class="empty-msg">No criteria</div>';
     }
 }
 

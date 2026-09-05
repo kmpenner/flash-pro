@@ -90,7 +90,7 @@ function renderAll() {
 function renderDeckBar() {
     const sel = document.getElementById('deck-select');
     if (sel) {
-        sel.innerHTML = State.decks.map(d => `<option value="${d.id}"${d.id === State.curDeckId ? ' selected' : ''}>${Utils.escH(d.name)}</option>`).join('');
+        sel.innerHTML = State.decks.map(d => `<option value="${Utils.escAttr(d.id)}"${d.id === State.curDeckId ? ' selected' : ''}>${Utils.escH(d.name)}</option>`).join('');
     }
 }
 
@@ -194,7 +194,7 @@ function renderEditCard() {
     if (freqEl) freqEl.value = c.frequency || 0;
     const catSel = document.getElementById('edit-cat');
     if (catSel) {
-        catSel.innerHTML = d.categories.map(cat => `<option value="${cat.id}"${cat.id === c.categoryId ? ' selected' : ''}>${Utils.escH(cat.name)}</option>`).join('');
+        catSel.innerHTML = d.categories.map(cat => `<option value="${Utils.escAttr(cat.id)}"${cat.id === c.categoryId ? ' selected' : ''}>${Utils.escH(cat.name)}</option>`).join('');
     }
     const mFbEl = document.getElementById('metrics-fb');
     if (mFbEl) mFbEl.innerHTML = renderMetrics(c.fb);
@@ -332,7 +332,7 @@ function renderTable(type) {
     }
     const bodyEl = document.getElementById('table-body');
     if (bodyEl) {
-        bodyEl.innerHTML = rows.map((r, i) => `<tr onclick="selectTableRow(this,'${r.id}')" data-id="${r.id}"><td>${i + 1}</td>${cols.map(c => `<td><input ${c === 'id' ? 'readonly style="opacity:0.6;cursor:not-allowed"' : ''} value="${Utils.escAttr(String(r[c] ?? ''))}" onchange="updateTableCell('${type}','${r.id}','${c}',this.value)"></td>`).join('')}</tr>`).join('') || `<tr><td colspan="${cols.length + 1}" style="text-align:center;color:#3a4060;padding:20px">No data</td></tr>`;
+        bodyEl.innerHTML = rows.map((r, i) => `<tr onclick="selectTableRow(this,'${Utils.escJs(r.id)}')" data-id="${Utils.escAttr(r.id)}"><td>${i + 1}</td>${cols.map(c => `<td><input ${c === 'id' ? 'readonly style="opacity:0.6;cursor:not-allowed"' : ''} value="${Utils.escAttr(String(r[c] ?? ''))}" onchange="updateTableCell('${Utils.escJs(type)}','${Utils.escJs(r.id)}','${c}',this.value)"></td>`).join('')}</tr>`).join('') || `<tr><td colspan="${cols.length + 1}" style="text-align:center;color:#3a4060;padding:20px">No data</td></tr>`;
     }
 }
 
@@ -382,12 +382,12 @@ function renderBundleView() {
     const cards = q ? d.cards.filter(c => c.front.toLowerCase().includes(q) || c.back.toLowerCase().includes(q)) : d.cards;
     const bCardsEl = document.getElementById('bv-cards');
     if (bCardsEl) {
-        bCardsEl.innerHTML = cards.map(c => `<div class="li${State.bvSelCards.has(c.id) ? ' sel' : ''}" onclick="toggleBvCard('${c.id}')">${Utils.escH(c.front)}</div>`).join('') || '<div class="empty-msg">No cards</div>';
+        bCardsEl.innerHTML = cards.map(c => `<div class="li${State.bvSelCards.has(c.id) ? ' sel' : ''}" onclick="toggleBvCard('${Utils.escJs(c.id)}')">${Utils.escH(c.front)}</div>`).join('') || '<div class="empty-msg">No cards</div>';
     }
     const bSel = document.getElementById('bv-bundle-select');
     if (!bSel) return;
     const prevVal = bSel.value;
-    bSel.innerHTML = d.bundles.map(b => `<option value="${b.id}">${Utils.escH(b.name)}</option>`).join('') || '<option value="">-- no bundles --</option>';
+    bSel.innerHTML = d.bundles.map(b => `<option value="${Utils.escAttr(b.id)}">${Utils.escH(b.name)}</option>`).join('') || '<option value="">-- no bundles --</option>';
     if (prevVal && d.bundles.find(b => b.id === prevVal)) bSel.value = prevVal;
     const bid = bSel.value;
     const bundle = d.bundles.find(b => b.id === bid);
@@ -395,7 +395,7 @@ function renderBundleView() {
     if (bndCardsEl) {
         if (bundle) {
             const bcards = bundle.cardIds.map(id => d.cards.find(c => c.id === id)).filter(Boolean);
-            bndCardsEl.innerHTML = bcards.map(c => `<div class="li${State.bvSelBundleCards.has(c.id) ? ' sel' : ''}" onclick="toggleBvBundleCard('${c.id}')">${Utils.escH(c.front)}</div>`).join('') || '<div class="empty-msg">Bundle is empty</div>';
+            bndCardsEl.innerHTML = bcards.map(c => `<div class="li${State.bvSelBundleCards.has(c.id) ? ' sel' : ''}" onclick="toggleBvBundleCard('${Utils.escJs(c.id)}')">${Utils.escH(c.front)}</div>`).join('') || '<div class="empty-msg">Bundle is empty</div>';
         } else {
             bndCardsEl.innerHTML = '<div class="empty-msg">Select a bundle</div>';
         }
@@ -507,7 +507,7 @@ function renderHelpContent(activeTab) {
         { id: 'links', label: '🔗 Direct Links' }
     ];
 
-    let body = `<div class="help-nav-tabs">` + tabs.map(t => `<button class="help-tab-btn${t.id === activeTab ? ' active' : ''}" onclick="switchHelpTab('${t.id}')">${t.label}</button>`).join('') + `</div>`;
+    let body = `<div class="help-nav-tabs">` + tabs.map(t => `<button class="help-tab-btn${t.id === activeTab ? ' active' : ''}" onclick="switchHelpTab('${Utils.escJs(t.id)}')">${t.label}</button>`).join('') + `</div>`;
     
     if (activeTab === 'quickstart') {
         body += `
@@ -776,7 +776,7 @@ function renderCurriculumLibraryContent() {
                 <input type="text" class="catalog-search-input" id="catalog-search" placeholder="Search textbooks (e.g. Mounce, Wheelock, Kelley, Dobson, French...)" value="${Utils.escAttr(_catalogSearchQuery)}" oninput="onCatalogSearch(this.value)">
                 <div class="row" style="gap:6px; flex-wrap:wrap;">
                     ${languages.map(lang => `
-                        <button class="btn btn-sm ${lang === _catalogFilterLang ? 'btn-primary' : 'btn-secondary'}" onclick="filterCatalogByLang('${lang}')">
+                        <button class="btn btn-sm ${lang === _catalogFilterLang ? 'btn-primary' : 'btn-secondary'}" onclick="filterCatalogByLang('${Utils.escJs(lang)}')">
                             ${lang === 'all' ? '🌐 All Languages' : lang}
                         </button>
                     `).join('')}
@@ -804,10 +804,10 @@ function renderCurriculumLibraryContent() {
                                 ` : ''}
                             </div>
                             <div class="catalog-card-actions">
-                                <button class="btn btn-sm btn-secondary" onclick="downloadCatalogDeck('${d.id}')" title="Download standalone JSON deck">
+                                <button class="btn btn-sm btn-secondary" onclick="downloadCatalogDeck('${Utils.escJs(d.id)}')" title="Download standalone JSON deck">
                                     <i data-lucide="download"></i> JSON
                                 </button>
-                                <button class="btn btn-sm ${isLoaded ? 'btn-secondary' : 'btn-primary'}" onclick="loadCatalogDeck('${d.id}')">
+                                <button class="btn btn-sm ${isLoaded ? 'btn-secondary' : 'btn-primary'}" onclick="loadCatalogDeck('${Utils.escJs(d.id)}')">
                                     <i data-lucide="${isLoaded ? 'check' : 'plus-circle'}"></i> ${isLoaded ? 'Switch To Deck' : 'Load Into App'}
                                 </button>
                             </div>
