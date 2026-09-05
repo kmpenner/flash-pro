@@ -208,10 +208,19 @@ function renderEditCard() {
 function renderMetrics(m) {
     m = m || {};
     const fmt = v => (v && v !== DEFAULT_DATE) ? new Date(v).toLocaleDateString() : '–';
+    const dlr = m.dateLastRight || DEFAULT_DATE;
+    const dlw = m.dateLastWrong || DEFAULT_DATE;
+    // Days right since wrong: days elapsed since last right, counted only while
+    // the right answer postdates the last wrong (matches the criteria engine's DaysRightSinceWrong)
+    let drsw = 0;
+    if (dlr !== DEFAULT_DATE && (dlw === DEFAULT_DATE || dlr > dlw)) {
+        drsw = Math.floor((Utils.now() - dlr) / Utils.dayMs);
+    }
     return [
         ['Times Right', m.timesRight || 0],
         ['Times Wrong', m.timesWrong || 0],
         ['Right Since Wrong', m.timesRightSinceWrong || 0],
+        ['Days Right Since Wrong', drsw],
         ['Last Right', fmt(m.dateLastRight)],
         ['Last Wrong', fmt(m.dateLastWrong)],
     ].map(([l, v]) => `<div class="metric-row"><span class="metric-label">${l}</span><span class="metric-val">${v}</span></div>`).join('');

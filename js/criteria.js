@@ -86,6 +86,20 @@ function toggleCat(id) {
     gatherCards();
 }
 
+function selectAllBundles(all) {
+    const d = State.deck; if (!d) return;
+    State.selBundleIds = all ? new Set(d.bundles.map(b => b.id)) : new Set();
+    renderSelectView();
+    gatherCards();
+}
+
+function selectAllCats(all) {
+    const d = State.deck; if (!d) return;
+    State.selCatIds = all ? new Set(d.categories.map(c => c.id)) : new Set();
+    renderSelectView();
+    gatherCards();
+}
+
 function renderGatheredList() {
     const gl = document.getElementById('gathered-list');
     const badge = document.getElementById('sel-badge');
@@ -216,6 +230,34 @@ function newCriteria() {
     if (nameEl) nameEl.value = '';
     if (logicEl) logicEl.value = '';
     renderCriteriaView();
+}
+
+// Classic Flash! Pro XP "Type of Drill" presets, restored as one-click criteria rules.
+const DRILL_PRESETS = [
+    { name: 'Freq. 100+', logic: 'Frequency >= 100' },
+    { name: 'Freq. 200-300', logic: 'Frequency >= 200 AND Frequency <= 300' },
+    { name: 'Frequency<50', logic: 'Frequency < 50' },
+    { name: 'Hapax (Once Only)', logic: 'Frequency == 1' },
+    { name: 'Emergency Quiz', logic: 'TimesWrong > 0 AND TimesRightSinceWrong < 2' },
+];
+
+function addDrillPreset(idx) {
+    const d = State.deck; if (!d) return;
+    const preset = DRILL_PRESETS[idx];
+    if (!preset) return;
+    const existing = d.criteria.find(c => c.name === preset.name);
+    if (existing) {
+        State.selCriteriaId = existing.id;
+    } else {
+        const newC = { id: Utils.uid(), name: preset.name, logic: preset.logic };
+        d.criteria.push(newC);
+        State.selCriteriaId = newC.id;
+        save();
+    }
+    renderCriteriaView();
+    renderSelectView();
+    selectCriteria(State.selCriteriaId);
+    gatherCards();
 }
 
 function saveCriteria() {

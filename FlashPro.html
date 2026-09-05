@@ -116,6 +116,16 @@
                         <div class="listbox" id="criteria-list" style="height:120px"></div>
                     </div>
                     <div class="panel">
+                        <div class="panel-title">Classic Drill Types <span class="text-secondary" style="font-weight:400; font-size:0.75em;">(from Flash! Pro XP)</span></div>
+                        <div style="display:flex; flex-wrap:wrap; gap:6px; padding:8px;">
+                            <button class="btn btn-sm btn-secondary" onclick="addDrillPreset(0)" title="Words occurring 100+ times">Freq. 100+</button>
+                            <button class="btn btn-sm btn-secondary" onclick="addDrillPreset(1)" title="Words occurring 200–300 times">Freq. 200-300</button>
+                            <button class="btn btn-sm btn-secondary" onclick="addDrillPreset(2)" title="Words occurring fewer than 50 times">Freq. &lt;50</button>
+                            <button class="btn btn-sm btn-secondary" onclick="addDrillPreset(3)" title="Words occurring only once (hapax legomena)">Hapax</button>
+                            <button class="btn btn-sm btn-secondary" onclick="addDrillPreset(4)" title="Cards you have missed recently">Emergency Quiz</button>
+                        </div>
+                    </div>
+                    <div class="panel">
                         <div class="panel-title">Logic Details</div>
                         <div class="mono" id="criteria-display" style="height:42px; overflow:auto;"></div>
                     </div>
@@ -130,13 +140,25 @@
                 </div>
                 <div class="col">
                     <div class="panel" style="flex:1;display:flex;flex-direction:column;min-height:0">
-                        <div class="panel-title">Select Bundles</div>
+                        <div class="panel-title" style="display:flex; justify-content:space-between; align-items:center;">
+                            <span>Select Bundles</span>
+                            <span>
+                                <button class="btn btn-sm btn-secondary" onclick="selectAllBundles(true)" title="Select all bundles" style="padding:2px 8px; font-size:0.75em;">All</button>
+                                <button class="btn btn-sm btn-secondary" onclick="selectAllBundles(false)" title="Select no bundles" style="padding:2px 8px; font-size:0.75em;">None</button>
+                            </span>
+                        </div>
                         <div class="listbox" id="bundle-list" style="flex:1"></div>
                     </div>
                 </div>
                 <div class="col">
                     <div class="panel" style="flex:1;display:flex;flex-direction:column;min-height:0">
-                        <div class="panel-title">Select Categories</div>
+                        <div class="panel-title" style="display:flex; justify-content:space-between; align-items:center;">
+                            <span>Select Categories</span>
+                            <span>
+                                <button class="btn btn-sm btn-secondary" onclick="selectAllCats(true)" title="Select all categories" style="padding:2px 8px; font-size:0.75em;">All</button>
+                                <button class="btn btn-sm btn-secondary" onclick="selectAllCats(false)" title="Select no categories" style="padding:2px 8px; font-size:0.75em;">None</button>
+                            </span>
+                        </div>
                         <div class="listbox" id="cat-list" style="flex:1"></div>
                     </div>
                 </div>
@@ -585,6 +607,14 @@
                         <p class="text-secondary" style="font-size: 0.85em;">Generate an portable HTML file containing your gathered set with interactive answers.</p>
                         <button class="btn btn-secondary" onclick="createQuiz()">
                             <i data-lucide="external-link"></i> Generate HTML Quiz
+                        </button>
+                    </div>
+
+                    <div class="panel col" style="margin-top: 24px;">
+                        <div class="panel-title">Reader's Lexicon</div>
+                        <p class="text-secondary" style="font-size: 0.85em;">Generate a Kubo / A-B-C style printable vocabulary list (word &amp; gloss, alphabetical) from your gathered set &mdash; opens in any word processor.</p>
+                        <button class="btn btn-secondary" onclick="createReadersLexicon()">
+                            <i data-lucide="book-open"></i> Generate Reader's Lexicon
                         </button>
                     </div>
                 </div>
