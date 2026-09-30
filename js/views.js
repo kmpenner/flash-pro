@@ -156,6 +156,9 @@ function handleLoadDeck(e) {
             if (!d.cards || !d.id) throw new Error('Invalid deck file');
             d.id = Utils.uid();
             d.name = (d.name || 'Imported Deck') + ' (imported)';
+            // An exported catalog deck carries catalogFile; the import is a full
+            // user-owned copy, so it must not be stubbed and re-fetched on reload.
+            delete d.catalogFile;
             State.decks.push(d); save(); State.curDeckId = d.id; Store.setCur(d.id);
             renderAll();
             alert('Deck loaded: ' + d.name);
@@ -917,8 +920,9 @@ async function loadCatalogDeck(deckId) {
             cards
         };
         newDeck.catalogFile = item.file;   // read-only source: rehydrated from repo on load
+        snapshotCatalogDeck(newDeck);      // baseline for diffing user changes at save time
         State.decks.push(newDeck);
-        saveCatalogStub(newDeck);
+        save();
         switchDeck(newDeck.id);
         closeModal();
     } catch (err) {

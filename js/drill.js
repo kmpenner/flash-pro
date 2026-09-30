@@ -79,6 +79,7 @@ function flipCard() {
 function judgeCard(right) {
     const s = State.drillSession; if (!s) return;
     const c = s.cards[s.idx];
+    if (!c) return; // round already finished
     const d = State.deck;
     const realCard = d?.cards.find(x => x.id === c.id);
     let prevMetrics = null;
@@ -214,19 +215,31 @@ function editCurrentCard() {
     if (typeof renderEditCard === 'function') renderEditCard();
 }
 
-// Keyboard shortcuts
-document.addEventListener('keydown', e => {
+// Keyboard shortcuts — active only while the drill view is showing, so keys
+// typed elsewhere never judge the hidden session's card.
+function handleDrillKey(e) {
     const tag = document.activeElement ? document.activeElement.tagName : '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const drillView = document.getElementById('view-drill');
+    if (!drillView || !drillView.classList.contains('active')) return;
+    const modal = document.getElementById('modal');
+    if (modal && modal.style.display === 'flex') return;
+
+    const advance = e.key === 'ArrowRight' || e.key === 'Enter' || e.key === ' ';
+    if (e.key === 'ArrowLeft') { prevCard(); return; }
     if (State.drillCountdownTimer) {
-        if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') {
-            e.preventDefault();
-            restartDrillRound();
-            return;
-        }
+        // Round complete: only "next round" (or undo, above) applies.
+        if (advance) { e.preventDefault(); restartDrillRound(); }
+        return;
     }
-    if (e.key === 'ArrowRight' || e.key === 'Enter') flipCard();
-    else if (e.key === 'y' || e.key === 'Y') judgeCard(true);
+    const s = State.drillSession;
+    if (!s || s.idx >= s.cards.length) return;
+    if (!s.flipped) {
+        if (advance) { e.preventDefault(); flipCard(); }
+        return;
+    }
+    if (e.key === 'y' || e.key === 'Y') judgeCard(true);
     else if (e.key === 'n' || e.key === 'N') judgeCard(false);
-    else if (e.key === 'ArrowLeft') prevCard();
-});
+}
+document.addEventListener('keydown', handleDrillKey);
