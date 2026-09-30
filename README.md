@@ -49,6 +49,16 @@ When importing from text/spreadsheets:
 - **Icons**: [Lucide](https://lucide.dev/)
 - **Data Persistence**: Local Storage + JSON Export support.
 
+## 🧪 Tests
+
+The app has no build step. Its logic is tested with Node's built-in test runner (Node 20+, no dependencies to install):
+
+```bash
+npm test
+```
+
+The tests load the real browser scripts from `js/` into an isolated context, and a few of them run against the shipped `data/` files.
+
 ## ⚖️ License
 
 MIT License. Feel free to use and adapt this for your personal learning needs.

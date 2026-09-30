@@ -79,6 +79,7 @@ function syncCardAcrossDecks(cardId, dir, metrics) {
     const curCard = curDeck?.cards.find(c => c.id === cardId);
     for (const otherDeck of State.decks) {
         if (otherDeck.id === State.curDeckId) continue;
+        if (!otherDeck.cards) continue; // catalog stub whose body isn't loaded
         const otherCard = otherDeck.cards.find(c => c.id === cardId || (curCard && curDeck.src && otherDeck.src && c.front === curCard.front));
         if (otherCard) {
             otherCard[dir] = { ...metrics };
@@ -209,60 +210,141 @@ function mkAthenaze1aDeck() {
 // =====================================================================
 // STORE & PERSISTENCE
 // =====================================================================
-// Catalog decks (loaded from the repo's data/ files) are READ-ONLY bodies:
-// localStorage keeps only a stub (id, name, catalogFile, selections) plus the
-// user's per-card study metrics. The card/panel content is rehydrated from the
-// repo on load. This keeps a multi-corpus workspace well inside the ~5MB
+// Catalog decks (loaded from the repo's data/ files) keep a read-only body in
+// the repo: localStorage holds only a stub (id, name, catalogFile) plus a diff
+// of everything the user changed against that pristine body — study metrics,
+// card edits, added and deleted cards, and any change to categories, bundles,
+// criteria or settings. The body is rehydrated from the repo on load and the
+// diff reapplied. This keeps a multi-corpus workspace well inside the ~5MB
 // localStorage quota (Greek NT alone is 3MB; Qumran 2MB+).
 // User decks (Athenaze, imported, hand-built) persist in full, as before.
 
-const CATALOG_STUB_FIELDS = ['id', 'name', 'createdDate', 'src', 'language',
-    'catalogFile', 'metrics', 'criteriaSelection', 'userEdits'];
+const CARD_CONTENT_FIELDS = ['front', 'back', 'frequency', 'categoryId'];
+// Small deck-level fields: stored whole when changed. Bundles can be large
+// (Greek NT: ~470KB of card ids), so they are diffed per bundle instead.
+const DECK_META_FIELDS = ['categories', 'criteria', 'settings'];
 
 function isCatalogDeck(d) { return !!(d && d.catalogFile); }
 
-function makeCatalogStub(d) {
-    // metrics: cardId -> {fb:{...}, bf:{...}} but only for cards with any activity
-    const metrics = {};
+// Record the pristine (as-shipped) state of a freshly loaded catalog body so
+// makeCatalogStub can diff against it. Non-enumerable: never exported or saved.
+function snapshotCatalogDeck(d) {
+    const cards = new Map();
     for (const c of d.cards) {
-        const fb = c.fb || {}, bf = c.bf || {};
-        const active = (fb.timesRight || fb.timesWrong || bf.timesRight || bf.timesWrong ||
-            (fb.dateLastRight && fb.dateLastRight !== DEFAULT_DATE) ||
-            (fb.dateLastWrong && fb.dateLastWrong !== DEFAULT_DATE) ||
-            (bf.dateLastRight && bf.dateLastRight !== DEFAULT_DATE) ||
-            (bf.dateLastWrong && bf.dateLastWrong !== DEFAULT_DATE));
-        if (active) metrics[c.id] = { fb: { ...fb }, bf: { ...bf } };
+        const snap = { fb: { ...c.fb }, bf: { ...c.bf } };
+        for (const f of CARD_CONTENT_FIELDS) snap[f] = c[f];
+        cards.set(c.id, snap);
     }
-    // user content edits on card fronts/backs (catalog cards are otherwise immutable)
-    const userEdits = {};
+    const meta = {};
+    for (const f of DECK_META_FIELDS) meta[f] = JSON.stringify(d[f] ?? null);
+    const bundles = new Map((d.bundles || []).map(b => [b.id, { name: b.name, cardIds: [...(b.cardIds || [])] }]));
+    Object.defineProperty(d, '_pristine', { value: { cards, meta, bundles }, enumerable: false, configurable: true, writable: true });
+}
+
+// Field-wise compare: runs on every save (i.e. every drill answer), and
+// serializing a large deck's bundles each time costs ~10ms.
+function bundleChanged(b, p) {
+    if (!p || b.name !== p.name) return true;
+    const ids = b.cardIds || [];
+    if (ids.length !== p.cardIds.length) return true;
+    for (let i = 0; i < ids.length; i++) if (ids[i] !== p.cardIds[i]) return true;
+    return false;
+}
+
+// Written out field by field: this runs for every card on every save.
+function metricsDiffer(a, b) {
+    a = a || {}; b = b || {};
+    return a.timesRight !== b.timesRight || a.timesWrong !== b.timesWrong ||
+        a.timesRightSinceWrong !== b.timesRightSinceWrong ||
+        a.dateLastRight !== b.dateLastRight || a.dateLastWrong !== b.dateLastWrong;
+}
+
+function contentDiffers(c, p) {
+    return c.front !== p.front || c.back !== p.back ||
+        c.frequency !== p.frequency || c.categoryId !== p.categoryId;
+}
+
+function isActiveMetrics(m = {}) {
+    return !!(m.timesRight || m.timesWrong ||
+        (m.dateLastRight && m.dateLastRight !== DEFAULT_DATE) ||
+        (m.dateLastWrong && m.dateLastWrong !== DEFAULT_DATE));
+}
+
+function makeCatalogStub(d) {
+    // Body not loaded (still fetching, or unavailable offline): d is still the
+    // stub read from storage, so pass it through untouched rather than
+    // overwriting the saved diff with an empty one.
+    if (!d.cards) {
+        const { _unavailable, ...stub } = d;
+        return stub;
+    }
+    const pristine = d._pristine;
+    const metrics = {}, userEdits = {}, addedCards = [], overrides = {};
+    let bundleEdits = { changed: [], removed: [] };
+    let pristineSeen = 0;
     for (const c of d.cards) {
-        if (c._userEdited) {
-            userEdits[c.id] = { front: c.front, back: c.back, frequency: c.frequency, categoryId: c.categoryId };
+        const p = pristine?.cards.get(c.id);
+        if (pristine && !p) { addedCards.push(c); continue; }
+        if (p) pristineSeen++;
+        const changed = p
+            ? metricsDiffer(c.fb, p.fb) || metricsDiffer(c.bf, p.bf)
+            : isActiveMetrics(c.fb) || isActiveMetrics(c.bf);
+        if (changed) metrics[c.id] = { fb: { ...c.fb }, bf: { ...c.bf } };
+        if (p && contentDiffers(c, p)) {
+            userEdits[c.id] = Object.fromEntries(CARD_CONTENT_FIELDS.map(f => [f, c[f]]));
         }
+    }
+    let deletedIds = [];
+    if (pristine && pristineSeen < pristine.cards.size) {
+        const present = new Set(d.cards.map(c => c.id));
+        deletedIds = [...pristine.cards.keys()].filter(id => !present.has(id));
+    }
+    if (pristine) {
+        for (const f of DECK_META_FIELDS) {
+            if (JSON.stringify(d[f] ?? null) !== pristine.meta[f]) overrides[f] = d[f];
+        }
+        const bundles = d.bundles || [];
+        const current = new Set(bundles.map(b => b.id));
+        bundleEdits = {
+            changed: bundles.filter(b => bundleChanged(b, pristine.bundles.get(b.id))),
+            removed: [...pristine.bundles.keys()].filter(id => !current.has(id)),
+        };
     }
     return {
         id: d.id, name: d.name, createdDate: d.createdDate,
         src: d.src, language: d.language, catalogFile: d.catalogFile,
-        metrics, userEdits,
-        criteriaSelection: State.selCriteriaId === d.id ? '' : undefined,
+        metrics, userEdits, addedCards, deletedIds, overrides, bundleEdits,
     };
 }
 
 function rehydrateCatalogDeck(stub, full) {
-    // apply saved study metrics onto the freshly fetched read-only body
+    snapshotCatalogDeck(full);
+    const deleted = new Set(stub.deletedIds || []);
+    if (deleted.size) full.cards = full.cards.filter(c => !deleted.has(c.id));
     const metrics = stub.metrics || {};
+    const edits = stub.userEdits || {};
     for (const c of full.cards) {
         const m = metrics[c.id];
         if (m) {
             c.fb = { ...c.fb, ...m.fb };
             c.bf = { ...c.bf, ...m.bf };
         }
-    }
-    const edits = stub.userEdits || {};
-    for (const c of full.cards) {
         const e = edits[c.id];
-        if (e) { c.front = e.front; c.back = e.back; c.frequency = e.frequency; c.categoryId = e.categoryId; }
+        if (e) for (const f of CARD_CONTENT_FIELDS) if (f in e) c[f] = e[f];
     }
+    for (const c of stub.addedCards || []) full.cards.push(c);
+    for (const [f, v] of Object.entries(stub.overrides || {})) {
+        if (DECK_META_FIELDS.includes(f)) full[f] = v;
+    }
+    const be = stub.bundleEdits || {};
+    const removed = new Set(be.removed || []);
+    full.bundles = (full.bundles || []).filter(b => !removed.has(b.id));
+    for (const b of be.changed || []) {
+        const i = full.bundles.findIndex(x => x.id === b.id);
+        if (i >= 0) full.bundles[i] = b; else full.bundles.push(b);
+    }
+    full.id = stub.id || full.id;
+    full.name = stub.name || full.name;
     full.catalogFile = stub.catalogFile;
     full.createdDate = stub.createdDate || full.createdDate;
     return full;
@@ -282,10 +364,9 @@ const Store = {
         try {
             localStorage.setItem('flashpro_decks', JSON.stringify(out));
         } catch (e) {
-            // fall back: drop metrics from stubs before giving up
-            const lean = out.map(d => d.metrics ? { ...d, metrics: {} } : d);
-            try { localStorage.setItem('flashpro_decks', JSON.stringify(lean)); }
-            catch (_) { alert('Storage full: could not save. Export your decks from the I/O tab.'); }
+            // Never fall back to a leaner save that drops study metrics: that
+            // would silently overwrite the user's saved progress.
+            alert('Storage full: could not save. Export your decks from the I/O tab.');
         }
     },
     currentId() { return localStorage.getItem('flashpro_cur') || '' },
@@ -293,11 +374,6 @@ const Store = {
 };
 
 function save() { Store.save(State.decks); }
-
-// Persist only the stub for one catalog deck without a full-state save.
-// For catalog decks, save() serializes all decks; the stub form makes that cheap
-// regardless, so plain save() is fine — this alias documents intent.
-function saveCatalogStub() { save(); }
 
 // Rehydrate all catalog stubs from their repo files at startup.
 // Returns a promise resolving when every stub has a full body (or fell back to stub-only).
@@ -307,7 +383,13 @@ function rehydrateCatalogDecks() {
         if (isCatalogDeck(d) && !d.cards) {
             jobs.push(
                 fetchCatalogDeckFile(d.catalogFile)
-                    .then(full => Object.assign(d, rehydrateCatalogDeck(d, convertCatalogCards(full))))
+                    .then(full => {
+                        const body = rehydrateCatalogDeck(d, convertCatalogCards(full));
+                        // Drop the stub's diff fields before adopting the full body.
+                        for (const k of Object.keys(d)) delete d[k];
+                        Object.assign(d, body);
+                        Object.defineProperty(d, '_pristine', { value: body._pristine, enumerable: false, configurable: true, writable: true });
+                    })
                     .catch(err => {
                         console.warn(`Could not rehydrate "${d.name}": ${err.message}`);
                         d._unavailable = true;

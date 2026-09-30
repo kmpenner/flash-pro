@@ -1,0 +1,8 @@
+{
+  "name": "flash-pro",
+  "private": true,
+  "description": "Flash! Pro flashcard app (static site; no build step)",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  }
+}
