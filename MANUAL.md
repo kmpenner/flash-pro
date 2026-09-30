@@ -50,7 +50,7 @@ This is your "Session Builder."
 ---
 
 ## ⚙️ Criteria & The Logic Rule Manager
-This is the "Power User" feature. You can write JavaScript-syntax rules to control which cards appear.
+This is the "Power User" feature. You write rules that compare numbers to control which cards appear.
 
 ### Available Constants
 -   `Now`: Current timestamp.
@@ -59,10 +59,18 @@ This is the "Power User" feature. You can write JavaScript-syntax rules to contr
 -   `TimesRightSinceWrong`: Your current success streak.
 -   `DateLastRight` / `DateLastWrong`: Timestamps of last interactions.
 -   `DaysRightSinceWrong`: Number of days since you last missed the card.
+-   `DayMs`: One day in milliseconds (86400000), for use with the timestamps.
+
+Names are not case-sensitive. `LastRightTime` / `LastWrongTime` are accepted as older names for `DateLastRight` / `DateLastWrong`.
+
+### Operators
+-   Comparison: `==` (or a single `=`), `!=` (or `<>`), `<`, `<=`, `>`, `>=`
+-   Arithmetic: `+`, `-`, `*`, `/`, `%`
+-   Logic: `AND` / `&&`, `OR` / `||`, `NOT` / `!`, with parentheses for grouping
 
 ### Example Rules
 -   `TimesRight < 5`: High-reinforcement mode.
--   `(Now - DateLastRight) > 86400000`: Cards not seen in over 24 hours.
+-   `(Now - DateLastRight) > DayMs`: Cards not seen in over 24 hours.
 -   `Frequency > 50`: Master the "High Value" cards.
 
 ---
@@ -100,9 +108,9 @@ When studying curated collections such as the *Athenaze* Book I vocabulary:
 
 ## 🔒 Security & Trust Model
 Flash! Pro is a zero-backend, client-side application running completely in your browser:
-- **Expression Evaluation**: Criteria logic rules use JavaScript expressions evaluated dynamically in the browser context (`Function()`).
+- **Criteria Rules**: Rules are read by a small built-in parser that only understands the constants and operators listed above. A rule cannot run code, including one that arrives in an imported deck file.
 - **Template Rendering**: Custom card templates (`{{front}}`, `{{back}}`) and head injections are rendered within `srcdoc` iframes.
-- **Trust Warning**: Only import `.flashpro.json` deck files or paste criteria filter rules from trusted sources. Never import untrusted deck files containing arbitrary script injections.
+- **Trust Warning**: A deck's settings can include custom HTML templates, which are shown in a sandboxed frame with scripts disabled. Even so, only import `.flashpro.json` deck files from sources you trust.
 
 ---
 

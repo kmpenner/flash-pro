@@ -2,30 +2,134 @@
 // CRITERIA ENGINE & SELECTION
 // =====================================================================
 
-function evaluateCriteria(logic, card_obj, dir, throwOnError = false) {
-    if (!logic || !logic.trim()) return true;
+// Rules are parsed by a small expression grammar rather than run as JavaScript,
+// so a rule in an imported deck can only compare numbers: it cannot run code.
+// Operators follow JavaScript precedence and semantics (so `a || b` yields a
+// value, as in `(DateLastWrong || DateLastRight)`), plus AND / OR, a single `=`
+// for equality and `<>` for inequality. The keyword NOT binds looser than the
+// comparisons, as in SQL (`NOT Frequency > 5`), while `!` binds tightly as in
+// JavaScript. Names are case-insensitive.
+
+const CRITERIA_NAMES = {
+    now: 'Now', dayms: 'DayMs', frequency: 'Frequency',
+    timesright: 'TimesRight', timeswrong: 'TimesWrong', timesrightsincewrong: 'TimesRightSinceWrong',
+    datelastright: 'DateLastRight', datelastwrong: 'DateLastWrong',
+    lastrighttime: 'DateLastRight', lastwrongtime: 'DateLastWrong',
+    daysrightsincewrong: 'DaysRightSinceWrong',
+};
+
+const CRITERIA_BINARY = {
+    '||': (a, b) => a || b, '&&': (a, b) => a && b,
+    '==': (a, b) => a == b, '!=': (a, b) => a != b, '===': (a, b) => a === b, '!==': (a, b) => a !== b,
+    '<': (a, b) => a < b, '<=': (a, b) => a <= b, '>': (a, b) => a > b, '>=': (a, b) => a >= b,
+    '+': (a, b) => a + b, '-': (a, b) => a - b, '*': (a, b) => a * b, '/': (a, b) => a / b, '%': (a, b) => a % b,
+};
+const CRITERIA_ALIASES = { and: '&&', or: '||', not: 'NOT', '=': '==', '<>': '!=' };
+const CRITERIA_LEVELS = [['||'], ['&&'], ['==', '!=', '===', '!=='], ['<', '<=', '>', '>='], ['+', '-'], ['*', '/', '%']];
+const CRITERIA_NOT_LEVEL = 2; // NOT applies to a whole comparison
+
+function tokenizeCriteria(src) {
+    const re = /(\d*\.?\d+(?:e[+-]?\d+)?)|([A-Za-z_]\w*)|(===|!==|==|!=|<>|<=|>=|&&|\|\||[-+*/%<>=!()])/iy;
+    const tokens = [];
+    let pos = 0;
+    for (;;) {
+        while (/\s/.test(src[pos] || '')) pos++;
+        if (pos >= src.length) break;
+        re.lastIndex = pos;
+        const m = re.exec(src);
+        if (!m) throw new SyntaxError(`Unexpected "${src[pos]}" at position ${pos + 1}`);
+        pos = re.lastIndex;
+        if (m[1] !== undefined) tokens.push({ type: 'num', value: Number(m[1]) });
+        else if (m[2] !== undefined) {
+            const w = m[2].toLowerCase();
+            if (Object.hasOwn(CRITERIA_ALIASES, w)) tokens.push({ type: 'op', value: CRITERIA_ALIASES[w] });
+            else if (w === 'true' || w === 'false') tokens.push({ type: 'num', value: w === 'true' });
+            else if (Object.hasOwn(CRITERIA_NAMES, w)) tokens.push({ type: 'name', value: CRITERIA_NAMES[w] });
+            else throw new ReferenceError(`Unknown name "${m[2]}"`);
+        } else tokens.push({ type: 'op', value: CRITERIA_ALIASES[m[3]] || m[3] });
+    }
+    return tokens;
+}
+
+// Compiles a rule into a function (vars) => value. Throws on a malformed rule.
+function parseCriteria(src) {
+    const tokens = tokenizeCriteria(src);
+    let i = 0;
+    const peekOp = () => tokens[i] && tokens[i].type === 'op' ? tokens[i].value : null;
+    const expect = op => {
+        if (peekOp() !== op) throw new SyntaxError(tokens[i] ? `Expected "${op}" but found "${tokens[i].value}"` : `Expected "${op}" at end of rule`);
+        i++;
+    };
+    const binary = level => {
+        if (level === CRITERIA_LEVELS.length) return unary();
+        if (level === CRITERIA_NOT_LEVEL && peekOp() === 'NOT') {
+            i++;
+            const e = binary(level);
+            return v => !e(v);
+        }
+        let left = binary(level + 1);
+        while (CRITERIA_LEVELS[level].includes(peekOp())) {
+            const f = CRITERIA_BINARY[tokens[i++].value];
+            const l = left, r = binary(level + 1);
+            left = v => f(l(v), r(v));
+        }
+        return left;
+    };
+    const unary = () => {
+        const op = peekOp();
+        if (op === '!' || op === '-' || op === '+') {
+            i++;
+            const e = unary();
+            return op === '!' ? v => !e(v) : op === '-' ? v => -e(v) : v => +e(v);
+        }
+        return primary();
+    };
+    const primary = () => {
+        const t = tokens[i++];
+        if (!t) throw new SyntaxError('Unexpected end of rule');
+        if (t.type === 'num') return () => t.value;
+        if (t.type === 'name') return v => v[t.value];
+        if (t.value === '(') { const e = binary(0); expect(')'); return e; }
+        throw new SyntaxError(`Unexpected "${t.value}"`);
+    };
+    if (!tokens.length) return () => true;
+    const expr = binary(0);
+    if (i < tokens.length) throw new SyntaxError(`Unexpected "${tokens[i].value}"`);
+    return expr;
+}
+
+function criteriaVars(card_obj, dir, nowMs) {
     const m = card_obj[dir] || {};
-    const nowMs = Utils.now();
-    let dlr = m.dateLastRight || DEFAULT_DATE;
-    let dlw = m.dateLastWrong || DEFAULT_DATE;
+    const dlr = m.dateLastRight || DEFAULT_DATE;
+    const dlw = m.dateLastWrong || DEFAULT_DATE;
     let drsw = 0;
     if (dlr !== DEFAULT_DATE && (dlw === DEFAULT_DATE || dlr > dlw)) { drsw = (nowMs - dlr) / Utils.dayMs; }
-    const ctx = {
-        Now: nowMs, NOW: nowMs, Frequency: card_obj.frequency || 0,
+    return {
+        Now: nowMs, DayMs: Utils.dayMs, Frequency: card_obj.frequency || 0,
         TimesRight: m.timesRight || 0, TimesWrong: m.timesWrong || 0,
         TimesRightSinceWrong: m.timesRightSinceWrong || 0,
-        DateLastRight: dlr, DateLastWrong: dlw,
-        LastRightTime: dlr, LastWrongTime: dlw,
-        DaysRightSinceWrong: drsw,
+        DateLastRight: dlr, DateLastWrong: dlw, DaysRightSinceWrong: drsw,
     };
-    let expr = logic;
-    expr = expr.replace(/([^!<>=])=([^=])/g, '$1==$2');
-    for (const [k, v] of Object.entries(ctx)) {
-        expr = expr.replace(new RegExp('\\b' + k + '\\b', 'g'), String(v));
+}
+
+const _criteriaCache = new Map();
+
+// Returns a predicate (card_obj, dir, nowMs?) => boolean. Throws on a malformed rule.
+function compileCriteria(logic) {
+    const src = (logic || '').trim();
+    let pred = _criteriaCache.get(src);
+    if (!pred) {
+        const expr = parseCriteria(src);
+        pred = (card_obj, dir, nowMs = Utils.now()) => !!expr(criteriaVars(card_obj, dir, nowMs));
+        if (_criteriaCache.size > 200) _criteriaCache.clear();
+        _criteriaCache.set(src, pred);
     }
-    expr = expr.replace(/\bAND\b/gi, '&&').replace(/\bOR\b/gi, '||');
+    return pred;
+}
+
+function evaluateCriteria(logic, card_obj, dir, throwOnError = false) {
     try {
-        return !!Function('"use strict";return(' + expr + ')')();
+        return compileCriteria(logic)(card_obj, dir);
     } catch (err) {
         if (throwOnError) throw err;
         return false;
@@ -41,15 +145,15 @@ function renderSelectView() {
     if (!d.criteria || !d.bundles || !d.categories) return; // stub deck: body still loading
     const cl = document.getElementById('criteria-list');
     if (cl) {
-        cl.innerHTML = d.criteria.map(c => `<div class="li${State.selCriteriaId === c.id ? ' sel' : ''}" onclick="selectCriteria('${Utils.escJs(c.id)}')">${Utils.escH(c.name)}</div>`).join('') || '<div class="empty-msg">No criteria</div>';
+        cl.innerHTML = d.criteria.map(c => `<div class="li${State.selCriteriaId === c.id ? ' sel' : ''}" ${Utils.act('selectCriteria', c.id)}>${Utils.escH(c.name)}</div>`).join('') || '<div class="empty-msg">No criteria</div>';
     }
     const bl = document.getElementById('bundle-list');
     if (bl) {
-        bl.innerHTML = d.bundles.map(b => `<div class="li${State.selBundleIds.has(b.id) ? ' sel2' : ''}" onclick="toggleBundle('${Utils.escJs(b.id)}')">${Utils.escH(b.name)}<span class="badge">${b.cardIds.length}</span></div>`).join('') || '<div class="empty-msg">No bundles</div>';
+        bl.innerHTML = d.bundles.map(b => `<div class="li${State.selBundleIds.has(b.id) ? ' sel2' : ''}" ${Utils.act('toggleBundle', b.id)}>${Utils.escH(b.name)}<span class="badge">${b.cardIds.length}</span></div>`).join('') || '<div class="empty-msg">No bundles</div>';
     }
     const cat_l = document.getElementById('cat-list');
     if (cat_l) {
-        cat_l.innerHTML = d.categories.map(c => `<div class="li${State.selCatIds.has(c.id) ? ' sel2' : ''}" onclick="toggleCat('${Utils.escJs(c.id)}')">${Utils.escH(c.name)}</div>`).join('') || '<div class="empty-msg">No categories</div>';
+        cat_l.innerHTML = d.categories.map(c => `<div class="li${State.selCatIds.has(c.id) ? ' sel2' : ''}" ${Utils.act('toggleCat', c.id)}>${Utils.escH(c.name)}</div>`).join('') || '<div class="empty-msg">No categories</div>';
     }
 
     // Auto-select sort field for deck: default to frequency if deck has positive frequency data
@@ -121,22 +225,27 @@ function gatherCards() {
     const dirEl = document.getElementById('drill-direction');
     const dir = (dirEl && dirEl.value) ? dirEl.value : 'fb';
     const dirs = dir === 'both' ? ['fb', 'bf'] : [dir];
-    const bFilter = State.selBundleIds.size > 0;
+    let bundleCardIds = null;
+    if (State.selBundleIds.size > 0) {
+        bundleCardIds = new Set();
+        for (const b of d.bundles) {
+            if (State.selBundleIds.has(b.id)) for (const id of b.cardIds) bundleCardIds.add(id);
+        }
+    }
     const catFilter = State.selCatIds.size > 0;
+    let pred;
+    try { pred = compileCriteria(logic); } catch (_) { pred = () => false; } // malformed rule matches nothing
     let seen = new Set();
     let matched = [];
     const nowMs = Utils.now();
 
     for (const card_obj of d.cards) {
-        if (bFilter) {
-            const inBundle = d.bundles.some(b => State.selBundleIds.has(b.id) && b.cardIds.includes(card_obj.id));
-            if (!inBundle) continue;
-        }
+        if (bundleCardIds && !bundleCardIds.has(card_obj.id)) continue;
         if (catFilter && !State.selCatIds.has(card_obj.categoryId)) continue;
         for (const dr of dirs) {
             const key = card_obj.id + '_' + dr;
             if (seen.has(key)) continue;
-            if (evaluateCriteria(logic, card_obj, dr)) {
+            if (pred(card_obj, dr, nowMs)) {
                 seen.add(key);
                 matched.push({ ...card_obj, _dir: dr });
             }
@@ -208,7 +317,7 @@ function renderCriteriaView() {
     const d = State.deck; if (!d || !d.criteria) return; // stub deck guard
     const mgrList = document.getElementById('criteria-mgr-list');
     if (mgrList) {
-        mgrList.innerHTML = d.criteria.map(c => `<div class="li${State.selCritMgrId === c.id ? ' sel' : ''}" onclick="selectCritMgr('${Utils.escJs(c.id)}')">${Utils.escH(c.name)}</div>`).join('') || '<div class="empty-msg">No criteria</div>';
+        mgrList.innerHTML = d.criteria.map(c => `<div class="li${State.selCritMgrId === c.id ? ' sel' : ''}" ${Utils.act('selectCritMgr', c.id)}>${Utils.escH(c.name)}</div>`).join('') || '<div class="empty-msg">No criteria</div>';
     }
 }
 
@@ -290,7 +399,8 @@ function testCriteria() {
     const resEl = document.getElementById('crit-test-result');
     if (!resEl) return;
     try {
-        const matches = d.cards.filter(c => evaluateCriteria(logic, c, dir, true));
+        const pred = compileCriteria(logic);
+        const matches = (d.cards || []).filter(c => pred(c, dir));
         resEl.style.color = '';
         resEl.textContent = `→ ${matches.length} card(s) match`;
     } catch (err) {

@@ -455,7 +455,7 @@
                                 <input type="text" id="crit-name" placeholder="Friendly name for this rule...">
                             </div>
                             <div class="col">
-                                <label class="flab">Predicate Logic (JavaScript Syntax)</label>
+                                <label class="flab">Rule Logic</label>
                                 <textarea id="crit-logic" rows="8" class="mono" placeholder="e.g. (Now - DateLastRight) > dayMs"></textarea>
                             </div>
                             <div class="row" style="justify-content: space-between;">
@@ -479,13 +479,13 @@
                     <div class="col" style="flex: 1;">
                         <div class="panel-title">Constants</div>
                         <code style="display:block; padding: 12px; background: var(--bg-input); line-height: 2;">
-                            Now, Frequency, TimesRight, TimesWrong, TimesRightSinceWrong, DateLastRight, DateLastWrong, DaysRightSinceWrong
+                            Now, DayMs, Frequency, TimesRight, TimesWrong, TimesRightSinceWrong, DateLastRight, DateLastWrong, DaysRightSinceWrong
                         </code>
                     </div>
                     <div class="col" style="flex: 1;">
                         <div class="panel-title">Operations</div>
                         <code style="display:block; padding: 12px; background: var(--bg-input); line-height: 2;">
-                            AND, OR, ==, !=, >=, <=, >, <, +, -, *, /
+                            AND, OR, NOT, ( ), ==, !=, >=, <=, >, <, +, -, *, /, %
                         </code>
                     </div>
                 </div>
@@ -673,8 +673,6 @@
     </div>
 
     <script src="athenaze-data.js"></script>
-    <script src="athenaze-mdb-data.js"></script>
-    <script src="athenaze-extended-data.js"></script>
     <script src="data/catalog-data.js"></script>
     <script src="js/state.js"></script>
     <script src="js/criteria.js"></script>
