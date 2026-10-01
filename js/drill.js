@@ -94,8 +94,7 @@ function judgeCard(right) {
             m.timesWrong++; m.timesRightSinceWrong = 0; m.dateLastWrong = Utils.now();
             s.wrong++;
         }
-        syncCardAcrossDecks(realCard.id, dir, m);
-        save();
+        save([d, ...syncCardAcrossDecks(realCard.id, dir, m)]);
     }
     s.history.push({ cardId: c.id, dir: c._dir, right, prevMetrics });
     s.idx++;
@@ -120,8 +119,7 @@ function prevCard() {
             }
             if (last.right) s.right = Math.max(0, s.right - 1);
             else s.wrong = Math.max(0, s.wrong - 1);
-            syncCardAcrossDecks(rc.id, dir, rc[dir]);
-            save();
+            save([d, ...syncCardAcrossDecks(rc.id, dir, rc[dir])]);
         }
     }
     renderDrillCard();

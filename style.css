@@ -1507,3 +1507,65 @@ button, select, input, .li, .card-face, .nav-btn {
 }
 
 
+
+/* ---- UI REFINEMENTS ---- */
+
+/* Card statistics in the editor: label left, value right. */
+.metrics-box {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.metric-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9em;
+}
+.metric-row:last-child { border-bottom: none; }
+.metric-label { color: var(--text-secondary); }
+.metric-val { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Keep Gather / Start Session in reach while scrolling the Select view. */
+.select-bottom {
+    position: sticky;
+    bottom: -24px;
+    z-index: 5;
+    background: var(--bg-main);
+    margin-bottom: -10px;
+    padding-bottom: 24px;
+}
+
+/* Icons sit inline with button text. */
+.btn svg.lucide, .nav-btn svg.lucide {
+    width: 1.15em;
+    height: 1.15em;
+    flex-shrink: 0;
+    vertical-align: -0.2em;
+}
+
+/* Visible keyboard focus everywhere. */
+.btn:focus-visible, .nav-btn:focus-visible, .li:focus-visible,
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+    outline: 2px solid var(--secondary);
+    outline-offset: 2px;
+}
+
+@media (max-width: 768px) {
+    .select-bottom { bottom: -14px; padding: 10px 0 14px; gap: 8px; }
+    .select-bottom > .col { flex: 1 1 30%; min-width: 0; }
+    .select-bottom > .col:last-of-type { flex-basis: 60%; }
+    .select-bottom > .col input, .select-bottom > .col select { width: 100% !important; }
+    .select-bottom .btn { padding: 9px 12px !important; }
+    #gathered-count { width: 100%; font-size: 0.78em !important; }
+    /* Fade the scrolling tab strip so hidden tabs read as "more this way". */
+    #topbar nav {
+        -webkit-mask-image: linear-gradient(to right, #000 85%, transparent);
+        mask-image: linear-gradient(to right, #000 85%, transparent);
+    }
+}
+
+#main-table [data-cell="editedDate"] { min-width: 10.5em; }
+#main-table select[data-cell] { width: 100%; min-width: 8em; padding: 2px 6px; height: auto; font-size: inherit; border-radius: 3px; }

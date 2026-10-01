@@ -48,17 +48,11 @@ function init() {
                 if (changed) save();
             }
         }
-        if (typeof ATHENAZE_MDB_DECK !== 'undefined' && ATHENAZE_MDB_DECK) {
-            const hasMdbDeck = State.decks.some(d => d.id === 'deck_athenaze_mdb_canonical' || (d.src && d.src.kind === 'athenaze_mdb'));
-            if (!hasMdbDeck) {
-                const mdbDeck = typeof buildAthenazeMdbDeck === 'function' ? buildAthenazeMdbDeck() : null;
-                if (mdbDeck) {
-                    State.decks.push(mdbDeck);
-                    save();
-                }
-            }
-        }
     }
+    // The MDB deck belongs to the default set, but its data is fetched only when
+    // the deck is missing (first visit, or after the user deleted it).
+    const hadMdbDeck = State.decks.some(isAthenazeMdbDeck);
+    const mdbDeckReady = ensureAthenazeDeck('mdb');
 
     State.curDeckId = Store.currentId();
     if (!State.deck) State.curDeckId = State.decks[0].id;
@@ -82,6 +76,7 @@ function init() {
     }
 
     // Check for URL query parameters (e.g. ?chapter=1a&drill=1 or ?ch=2b&limit=10)
+    let pendingDeck = null;
     try {
         const params = new URLSearchParams(window.location.search);
         const chParam = params.get('chapter') || params.get('ch') || params.get('lesson');
@@ -105,24 +100,14 @@ function init() {
             }
         }
         const deckParam = params.get('deck');
-        if (deckParam === 'mdb') {
-            const mdbDk = State.decks.find(d => d.id === 'deck_athenaze_mdb_canonical' || (d.src && d.src.kind === 'athenaze_mdb'));
-            if (mdbDk) {
-                State.curDeckId = mdbDk.id;
-                Store.setCur(mdbDk.id);
-            }
-        } else if (deckParam === 'extended') {
-            let extDk = State.decks.find(d => d.name && d.name.includes('Extended Lexicon'));
-            if (!extDk && typeof buildAthenazeExtendedDeck === 'function') {
-                extDk = buildAthenazeExtendedDeck();
-                if (extDk) {
-                    State.decks.push(extDk);
-                    save();
-                }
-            }
-            if (extDk) {
-                State.curDeckId = extDk.id;
-                Store.setCur(extDk.id);
+        if (deckParam === 'mdb' || deckParam === 'extended') {
+            const dk = State.decks.find(deckParam === 'mdb' ? isAthenazeMdbDeck : isAthenazeExtendedDeck);
+            if (dk) {
+                State.curDeckId = dk.id;
+                Store.setCur(dk.id);
+            } else {
+                // Its data is still loading: switch to it once it arrives.
+                pendingDeck = deckParam === 'mdb' ? mdbDeckReady : ensureAthenazeDeck('extended');
             }
         }
         const viewParam = params.get('view');
@@ -165,11 +150,17 @@ function init() {
     let isDirectDrill = false;
     try {
         const params = new URLSearchParams(window.location.search);
-        if (params.get('drill') === '1' || params.get('start') === '1') {
-            isDirectDrill = true;
-            startDrill();
-        }
+        isDirectDrill = params.get('drill') === '1' || params.get('start') === '1';
     } catch (_) {}
+    if (pendingDeck) {
+        pendingDeck.then(d => {
+            if (d) switchDeck(d.id);
+            if (isDirectDrill) startDrill();
+        });
+    } else {
+        if (isDirectDrill) startDrill();
+        if (!hadMdbDeck) mdbDeckReady.then(d => { if (d) renderDeckBar(); });
+    }
 
     // Show friendly Quick Start guide on first visit if not drilling directly
     try {

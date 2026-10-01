@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <!-- Icons -->
-    <script src="https://unpkg.com/lucide@0.475.0/dist/umd/lucide.min.js"></script>
+    <script src="js/icons.js"></script>
     <link rel="stylesheet" href="style.css">
     <script>
         // Anti-flash: apply saved theme before first paint
@@ -55,16 +55,16 @@
         </nav>
         <div style="flex:1"></div>
         <div class="row">
-            <button class="btn btn-sm btn-secondary" onclick="cycleTheme()" id="theme-toggle" title="Theme: dark (click to change)">
+            <button class="btn btn-sm btn-secondary" onclick="cycleTheme()" id="theme-toggle" title="Theme: dark (click to change)" aria-label="Theme: dark (click to change)">
                 <i data-lucide="moon" id="theme-icon"></i>
             </button>
             <button class="btn btn-sm btn-secondary" onclick="openHelpModal()" title="Help, Tutorial & Shortcuts">
                 <i data-lucide="help-circle"></i> Help
             </button>
-            <button class="btn btn-sm btn-secondary" onclick="exportDeck()" title="Save Deck">
+            <button class="btn btn-sm btn-secondary" onclick="exportDeck()" title="Save Deck" aria-label="Save Deck">
                 <i data-lucide="save"></i>
             </button>
-            <button class="btn btn-sm btn-secondary" onclick="importDeckFile()" title="Load Deck">
+            <button class="btn btn-sm btn-secondary" onclick="importDeckFile()" title="Load Deck" aria-label="Load Deck">
                 <i data-lucide="folder-open"></i>
             </button>
             <input type="file" id="load-deck-input" accept=".json" style="display:none" onchange="handleLoadDeck(event)">
@@ -212,19 +212,19 @@
                 <div class="card-face back-face" id="drill-back" style="display:none"></div>
                 
                 <div class="drill-btns" id="drill-btns-flip">
-                    <button class="btn btn-secondary" onclick="prevCard()" title="Undo last card (← Left Arrow)">
+                    <button class="btn btn-secondary" onclick="prevCard()" title="Undo last card (← Left Arrow)" aria-label="Undo last card (← Left Arrow)">
                         <i data-lucide="corner-up-left"></i>
                     </button>
                     <button class="btn btn-primary" onclick="flipCard()" style="width: 220px" title="Reveal card back (Space or Enter)">
                         FLIP CARD <span class="kbd-badge">[Space]</span>
                     </button>
-                    <button class="btn btn-secondary" onclick="editCurrentCard()" title="Edit this card">
+                    <button class="btn btn-secondary" onclick="editCurrentCard()" title="Edit this card" aria-label="Edit this card">
                         <i data-lucide="edit-2"></i>
                     </button>
                 </div>
                 
                 <div class="drill-btns" id="drill-btns-judge" style="display:none">
-                    <button class="btn btn-secondary" onclick="prevCard()" title="Undo last card (← Left Arrow)">
+                    <button class="btn btn-secondary" onclick="prevCard()" title="Undo last card (← Left Arrow)" aria-label="Undo last card (← Left Arrow)">
                         <i data-lucide="corner-up-left"></i>
                     </button>
                     <button class="btn btn-danger" onclick="judgeCard(false)" style="flex:1" title="Mark incorrect (N key)">
@@ -233,7 +233,7 @@
                     <button class="btn btn-success" onclick="judgeCard(true)" style="flex:1" title="Mark correct (Y key)">
                         <i data-lucide="check"></i> CORRECT <span class="kbd-badge">[Y]</span>
                     </button>
-                    <button class="btn btn-secondary" onclick="editCurrentCard()" title="Edit this card">
+                    <button class="btn btn-secondary" onclick="editCurrentCard()" title="Edit this card" aria-label="Edit this card">
                         <i data-lucide="edit-2"></i>
                     </button>
                 </div>
@@ -286,11 +286,11 @@
         <div id="view-edit" class="view">
             <div class="row" style="margin-bottom: 20px; gap: 16px;">
                 <div class="row" style="background: var(--bg-panel); padding: 5px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
-                    <button class="btn btn-sm btn-secondary" onclick="editNav('first')"><i data-lucide="chevrons-left"></i></button>
-                    <button class="btn btn-sm btn-secondary" onclick="editNav('prev')"><i data-lucide="chevron-left"></i></button>
+                    <button class="btn btn-sm btn-secondary" onclick="editNav('first')" aria-label="First card" title="First card"><i data-lucide="chevrons-left"></i></button>
+                    <button class="btn btn-sm btn-secondary" onclick="editNav('prev')" aria-label="Previous card" title="Previous card"><i data-lucide="chevron-left"></i></button>
                     <span id="edit-pos" style="min-width: 60px; text-align: center; font-variant-numeric: tabular-nums; font-size: 0.85em;"></span>
-                    <button class="btn btn-sm btn-secondary" onclick="editNav('next')"><i data-lucide="chevron-right"></i></button>
-                    <button class="btn btn-sm btn-secondary" onclick="editNav('last')"><i data-lucide="chevrons-right"></i></button>
+                    <button class="btn btn-sm btn-secondary" onclick="editNav('next')" aria-label="Next card" title="Next card"><i data-lucide="chevron-right"></i></button>
+                    <button class="btn btn-sm btn-secondary" onclick="editNav('last')" aria-label="Last card" title="Last card"><i data-lucide="chevrons-right"></i></button>
                 </div>
                 <div style="position: relative; flex: 1;">
                     <i data-lucide="search" style="position: absolute; left: 12px; top: 50%; translate: 0 -50%; width: 16px; color: var(--text-muted);"></i>
@@ -299,7 +299,7 @@
                 <button class="btn btn-secondary" onclick="addNewCard()">
                     <i data-lucide="plus-circle"></i> New Card
                 </button>
-                <button class="btn btn-danger" onclick="deleteCurrentCard()">
+                <button class="btn btn-danger" onclick="deleteCurrentCard()" aria-label="Delete this card" title="Delete this card">
                     <i data-lucide="trash"></i>
                 </button>
                 <button class="btn btn-primary" onclick="saveCurrentCard()">
@@ -339,7 +339,7 @@
                 <div class="col" style="overflow:auto">
                     <div class="panel col">
                         <div class="panel-title">Analytics & Metadata</div>
-                        <div class="row">
+                        <div class="row" style="gap: 28px; align-items: flex-start;">
                             <div class="col" style="flex:1">
                                 <label class="flab">Front → Back</label>
                                 <div class="metrics-box" id="metrics-fb"></div>
@@ -401,7 +401,7 @@
                     <button class="btn btn-primary" onclick="createBundle()">
                         <i data-lucide="plus-square"></i> Create
                     </button>
-                    <button class="btn btn-danger" onclick="deleteBundle()">
+                    <button class="btn btn-danger" onclick="deleteBundle()" aria-label="Delete this bundle" title="Delete this bundle">
                         <i data-lucide="trash"></i>
                     </button>
                 </div>
@@ -414,8 +414,8 @@
                     </div>
                 </div>
                 <div class="col" style="justify-content: center; align-items: center; gap: 12px;">
-                    <button class="btn btn-primary" onclick="addToBundle()"><i data-lucide="arrow-right"></i></button>
-                    <button class="btn btn-danger" onclick="removeFromBundle()"><i data-lucide="arrow-left"></i></button>
+                    <button class="btn btn-primary" onclick="addToBundle()" aria-label="Add selected cards to the bundle" title="Add selected cards to the bundle"><i data-lucide="arrow-right"></i></button>
+                    <button class="btn btn-danger" onclick="removeFromBundle()" aria-label="Remove selected cards from the bundle" title="Remove selected cards from the bundle"><i data-lucide="arrow-left"></i></button>
                 </div>
                 <div class="col">
                     <div class="panel col" style="flex:1; min-height:0;">
@@ -436,7 +436,7 @@
                     <h2>Logic Rule Manager</h2>
                     <div class="row">
                         <button class="btn btn-secondary" onclick="newCriteria()"><i data-lucide="plus"></i> New Rule</button>
-                        <button class="btn btn-danger" onclick="deleteCriteria()"><i data-lucide="trash"></i></button>
+                        <button class="btn btn-danger" onclick="deleteCriteria()" aria-label="Delete this rule" title="Delete this rule"><i data-lucide="trash"></i></button>
                     </div>
                 </header>
                 
@@ -455,7 +455,7 @@
                                 <input type="text" id="crit-name" placeholder="Friendly name for this rule...">
                             </div>
                             <div class="col">
-                                <label class="flab">Predicate Logic (JavaScript Syntax)</label>
+                                <label class="flab">Rule Logic</label>
                                 <textarea id="crit-logic" rows="8" class="mono" placeholder="e.g. (Now - DateLastRight) > dayMs"></textarea>
                             </div>
                             <div class="row" style="justify-content: space-between;">
@@ -479,13 +479,16 @@
                     <div class="col" style="flex: 1;">
                         <div class="panel-title">Constants</div>
                         <code style="display:block; padding: 12px; background: var(--bg-input); line-height: 2;">
-                            Now, Frequency, TimesRight, TimesWrong, TimesRightSinceWrong, DateLastRight, DateLastWrong, DaysRightSinceWrong
+                            Now, DayMs, Frequency, TimesRight, TimesWrong, TimesRightSinceWrong, DateLastRight, DateLastWrong, DaysRightSinceWrong<br>
+                            Any card field: Front, Back, Category, or nested ones such as morph.tense
                         </code>
                     </div>
                     <div class="col" style="flex: 1;">
                         <div class="panel-title">Operations</div>
                         <code style="display:block; padding: 12px; background: var(--bg-input); line-height: 2;">
-                            AND, OR, ==, !=, >=, <=, >, <, +, -, *, /
+                            AND, OR, NOT, ( ), = (==), &lt;&gt; (!=), &gt;=, &lt;=, &gt;, &lt;, +, -, *, /, %<br>
+                            'text', LIKE 'λ%', ~= (ignores accents), IN (a, b), BETWEEN a AND b<br>
+                            ORDER BY Frequency DESC, LIMIT 20
                         </code>
                     </div>
                 </div>
@@ -673,8 +676,6 @@
     </div>
 
     <script src="athenaze-data.js"></script>
-    <script src="athenaze-mdb-data.js"></script>
-    <script src="athenaze-extended-data.js"></script>
     <script src="data/catalog-data.js"></script>
     <script src="js/state.js"></script>
     <script src="js/criteria.js"></script>

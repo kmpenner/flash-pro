@@ -50,7 +50,13 @@ This is your "Session Builder."
 ---
 
 ## ⚙️ Criteria & The Logic Rule Manager
-This is the "Power User" feature. You can write JavaScript-syntax rules to control which cards appear.
+This is the "Power User" feature. You write rules, in a language much like a SQL `WHERE` clause, that decide which cards appear and in what order:
+
+```
+[condition] [ORDER BY expression [ASC|DESC], ...] [LIMIT n]
+```
+
+Every part is optional: an empty rule gathers every card, and `ORDER BY Frequency DESC LIMIT 20` is a complete rule.
 
 ### Available Constants
 -   `Now`: Current timestamp.
@@ -59,11 +65,41 @@ This is the "Power User" feature. You can write JavaScript-syntax rules to contr
 -   `TimesRightSinceWrong`: Your current success streak.
 -   `DateLastRight` / `DateLastWrong`: Timestamps of last interactions.
 -   `DaysRightSinceWrong`: Number of days since you last missed the card.
+-   `DayMs`: One day in milliseconds (86400000), for use with the timestamps.
+
+The counts and dates are for the direction being drilled (front→back or back→front). `LastRightTime` / `LastWrongTime` are accepted as older names for `DateLastRight` / `DateLastWrong`.
+
+### Card Fields
+Any other name reads that field of the card: `Front`, `Back`, `Category`, `Num`, or any field an imported deck carries. Use a dot for nested fields, such as `morph.tense` or `ref.book`. A card without the field never matches a comparison on it, and **Run Test** reports a name that no card in the deck has, which catches typos.
+
+Names are not case-sensitive. The words `AND`, `OR`, `NOT`, `LIKE`, `IN`, `BETWEEN`, `ORDER`, `BY`, `ASC`, `DESC` and `LIMIT` are reserved, so a field with one of those names can't be used in a rule.
+
+### Text
+Put text in single or double quotes: `'λόγος'` or `"λόγος"`. To include the quote itself, double it: `'it''s'`.
+
+Text is compared in Unicode NFC form, so a letter typed as one precomposed character matches the same letter stored as a base letter plus combining accents.
+
+-   `=` / `<>`: exact match, accents and case included.
+-   `LIKE`: SQL wildcards (`%` for any run of characters, `_` for one character). Ignores case but keeps accents: `Front LIKE 'λό%'`.
+-   `~=`: a loose match that ignores case, Greek accents and breathings, Hebrew vowel points and cantillation, and the difference between σ and ς. It takes the same wildcards: `Front ~= 'αγ%'` finds ἀγαθός and ἅγιος, and `Front ~= 'שלום'` finds שָׁלוֹם.
+
+### Operators
+-   Comparison: `==` (or a single `=`), `!=` (or `<>`), `<`, `<=`, `>`, `>=`, `LIKE`, `~=`
+-   Lists and ranges: `x IN (a, b, c)`, `x BETWEEN low AND high` (inclusive)
+-   Arithmetic: `+`, `-`, `*`, `/`, `%`
+-   Logic: `AND` / `&&`, `OR` / `||`, `NOT` / `!`, with parentheses for grouping. `NOT` also negates `LIKE`, `IN` and `BETWEEN`: `morph.pos NOT IN ('noun', 'adj')`.
+
+### Order and Limit
+`ORDER BY` sorts the gathered cards by one or more expressions, each `ASC` (the default) or `DESC`. Cards missing a sort value come last either way. When a rule has `ORDER BY`, it takes precedence over the **Sort** menu, and the menu then only breaks ties. `LIMIT n` keeps the first *n* matches; the session size still applies after it.
 
 ### Example Rules
 -   `TimesRight < 5`: High-reinforcement mode.
--   `(Now - DateLastRight) > 86400000`: Cards not seen in over 24 hours.
+-   `(Now - DateLastRight) > DayMs`: Cards not seen in over 24 hours.
 -   `Frequency > 50`: Master the "High Value" cards.
+-   `Frequency BETWEEN 200 AND 300`: A frequency band.
+-   `morph.tense = 'aor' AND morph.voice IN ('mid', 'pass')`: Aorist middles and passives, in a deck with morphology fields.
+-   `Front ~= 'λογ%'`: Every form beginning λογ-, however it is accented.
+-   `TimesWrong > 0 ORDER BY TimesWrong DESC LIMIT 20`: Your 20 most-missed cards.
 
 ---
 
@@ -100,9 +136,9 @@ When studying curated collections such as the *Athenaze* Book I vocabulary:
 
 ## 🔒 Security & Trust Model
 Flash! Pro is a zero-backend, client-side application running completely in your browser:
-- **Expression Evaluation**: Criteria logic rules use JavaScript expressions evaluated dynamically in the browser context (`Function()`).
+- **Criteria Rules**: Rules are read by a small built-in parser that only understands the constants, card fields and operators listed above. A rule can read card data but cannot change it or run code, including one that arrives in an imported deck file.
 - **Template Rendering**: Custom card templates (`{{front}}`, `{{back}}`) and head injections are rendered within `srcdoc` iframes.
-- **Trust Warning**: Only import `.flashpro.json` deck files or paste criteria filter rules from trusted sources. Never import untrusted deck files containing arbitrary script injections.
+- **Trust Warning**: A deck's settings can include custom HTML templates, which are shown in a sandboxed frame with scripts disabled. Even so, only import `.flashpro.json` deck files from sources you trust.
 
 ---
 

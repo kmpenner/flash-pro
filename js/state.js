@@ -29,8 +29,10 @@ const Utils = {
     now: () => Date.now(),
     dayMs: 86400000,
     escH: (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
-    escAttr: (s) => String(s || '').replace(/"/g, '&quot;'),
-    escJs: (s) => String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/</g, '\\x3c').replace(/>/g, '\\x3e').replace(/&(?!#\d+;|#x[0-9a-f]+;|[a-z]+;)/gi, '\\x26'),
+    escAttr: (s) => String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;'),
+    // Attributes for a clickable element handled by the delegated listener in
+    // views.js. Ids travel as escaped attribute text, never as inline JS.
+    act: (name, id) => `data-act="${name}" data-id="${Utils.escH(id)}"`,
     dlBlob: (blob, name) => {
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
@@ -74,17 +76,21 @@ function mkDeck(name = 'New Deck') {
     };
 }
 
+// Copies a card's metrics to the same card in other decks; returns the decks it changed.
 function syncCardAcrossDecks(cardId, dir, metrics) {
     const curDeck = State.deck;
     const curCard = curDeck?.cards.find(c => c.id === cardId);
+    const changed = [];
     for (const otherDeck of State.decks) {
         if (otherDeck.id === State.curDeckId) continue;
         if (!otherDeck.cards) continue; // catalog stub whose body isn't loaded
         const otherCard = otherDeck.cards.find(c => c.id === cardId || (curCard && curDeck.src && otherDeck.src && c.front === curCard.front));
         if (otherCard) {
             otherCard[dir] = { ...metrics };
+            changed.push(otherDeck);
         }
     }
+    return changed;
 }
 
 function buildAthenazeDeck(ch) {
@@ -163,6 +169,49 @@ function buildAthenazeMasterDeck() {
         }
     }
 
+    return d;
+}
+
+// The MDB and Extended Lexicon datasets (~700 KB of script) load only when a
+// deck is built from them, not on every page visit. A <script> tag rather than
+// fetch() keeps this working when index.html is opened from disk.
+const ATHENAZE_DATA_SCRIPTS = { mdb: 'athenaze-mdb-data.js', extended: 'athenaze-extended-data.js' };
+const _scriptLoads = {};
+
+function loadScriptOnce(src) {
+    return _scriptLoads[src] ||= new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = () => resolve();
+        s.onerror = () => { delete _scriptLoads[src]; reject(new Error(`Could not load ${src}`)); };
+        document.head.appendChild(s);
+    });
+}
+
+function athenazeDataLoaded(kind) {
+    return kind === 'mdb'
+        ? typeof ATHENAZE_MDB_DECK !== 'undefined' && !!ATHENAZE_MDB_DECK
+        : typeof ATHENAZE_EXTENDED_DECK !== 'undefined' && !!ATHENAZE_EXTENDED_DECK;
+}
+
+async function loadAthenazeData(kind) {
+    if (!athenazeDataLoaded(kind)) await loadScriptOnce(ATHENAZE_DATA_SCRIPTS[kind]);
+}
+
+const isAthenazeMdbDeck = d => d.id === 'deck_athenaze_mdb_canonical' || (d.src && d.src.kind === 'athenaze_mdb');
+const isAthenazeExtendedDeck = d => !!(d.name && d.name.includes('Extended Lexicon'));
+
+// Finds the MDB or Extended deck, or builds and saves it (loading its data first).
+// Resolves to null if the data can't be loaded.
+async function ensureAthenazeDeck(kind) {
+    const match = kind === 'mdb' ? isAthenazeMdbDeck : isAthenazeExtendedDeck;
+    let d = State.decks.find(match);
+    if (d) return d;
+    try { await loadAthenazeData(kind); } catch (err) { console.warn(err.message); return null; }
+    d = State.decks.find(match); // may have been added while loading
+    if (d) return d;
+    d = kind === 'mdb' ? buildAthenazeMdbDeck() : buildAthenazeExtendedDeck();
+    if (d) { State.decks.push(d); save(); }
     return d;
 }
 
@@ -357,12 +406,24 @@ function fetchCatalogDeckFile(file) {
     });
 }
 
+// Each deck's serialized form as of its last save. A save that names the decks
+// it changed (answering a card) re-serializes only those and reuses the rest.
+const _savedDeckJson = new WeakMap();
+
 const Store = {
     load() { return JSON.parse(localStorage.getItem('flashpro_decks') || '[]') },
-    save(decks) {
-        const out = decks.map(d => isCatalogDeck(d) ? makeCatalogStub(d) : d);
+    // changed: the decks modified since the last save, or omitted for all of them.
+    save(decks, changed) {
+        const parts = decks.map(d => {
+            let json = _savedDeckJson.get(d);
+            if (json === undefined || !changed || changed.includes(d)) {
+                json = JSON.stringify(isCatalogDeck(d) ? makeCatalogStub(d) : d);
+                _savedDeckJson.set(d, json);
+            }
+            return json;
+        });
         try {
-            localStorage.setItem('flashpro_decks', JSON.stringify(out));
+            localStorage.setItem('flashpro_decks', '[' + parts.join(',') + ']');
         } catch (e) {
             // Never fall back to a leaner save that drops study metrics: that
             // would silently overwrite the user's saved progress.
@@ -373,7 +434,7 @@ const Store = {
     setCur(id) { localStorage.setItem('flashpro_cur', id) },
 };
 
-function save() { Store.save(State.decks); }
+function save(changedDecks) { Store.save(State.decks, changedDecks); }
 
 // Rehydrate all catalog stubs from their repo files at startup.
 // Returns a promise resolving when every stub has a full body (or fell back to stub-only).

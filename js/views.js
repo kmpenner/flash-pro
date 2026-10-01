@@ -26,6 +26,7 @@ function updateThemeButton() {
     const icon = document.getElementById('theme-icon');
     if (btn) {
         btn.title = `Theme: ${t} (click to change)`;
+        if (btn.setAttribute) btn.setAttribute('aria-label', btn.title);
         const label = btn.querySelector ? btn.querySelector('.theme-label') : null;
         if (label) label.textContent = t;
     }
@@ -82,6 +83,32 @@ function renderAll() {
     if (typeof renderExportFields === 'function') renderExportFields();
     updateDeckStats();
 }
+
+// Rendered lists mark clickable items with Utils.act() (data-act / data-id)
+// rather than inline onclick code, so a deck's ids are never parsed as script.
+const CLICK_ACTIONS = {
+    selectCriteria: id => selectCriteria(id),
+    toggleBundle: id => toggleBundle(id),
+    toggleCat: id => toggleCat(id),
+    selectCritMgr: id => selectCritMgr(id),
+    selectTableRow: (id, el) => selectTableRow(el, id),
+    toggleBvCard: id => toggleBvCard(id),
+    toggleBvBundleCard: id => toggleBvBundleCard(id),
+    switchHelpTab: id => switchHelpTab(id),
+    filterCatalogByLang: id => filterCatalogByLang(id),
+    downloadCatalogDeck: id => downloadCatalogDeck(id),
+    loadCatalogDeck: id => loadCatalogDeck(id),
+};
+
+document.addEventListener('click', e => {
+    const el = e.target.closest?.('[data-act]');
+    if (el && Object.hasOwn(CLICK_ACTIONS, el.dataset.act)) CLICK_ACTIONS[el.dataset.act](el.dataset.id, el);
+});
+
+document.addEventListener('change', e => {
+    const el = e.target.closest?.('[data-cell]');
+    if (el) updateTableCell(el.dataset.table, el.dataset.row, el.dataset.cell, el.value);
+});
 
 // =====================================================================
 // DECK BAR & MANAGEMENT
@@ -322,20 +349,46 @@ const TABLE_COLS = {
     criteria: ['id', 'name', 'logic'],
     bundles: ['id', 'name'],
 };
+const TABLE_HEADS = { id: 'ID', front: 'Front', back: 'Back', categoryId: 'Category', frequency: 'Frequency', editedDate: 'Edited', name: 'Name', logic: 'Rule' };
+// Columns the app sets itself; shown but not editable.
+const TABLE_READONLY = new Set(['id', 'editedDate']);
+
+// A timestamp as local "YYYY-MM-DD HH:MM", or '' when missing.
+function formatTableDate(ms) {
+    const n = Number(ms);
+    if (!ms || !Number.isFinite(n)) return '';
+    const t = new Date(n), p = x => String(x).padStart(2, '0');
+    return `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())} ${p(t.getHours())}:${p(t.getMinutes())}`;
+}
+
+function tableCell(type, r, c, cats) {
+    const data = `data-table="${Utils.escAttr(type)}" data-row="${Utils.escAttr(r.id)}" data-cell="${c}"`;
+    if (type === 'cards' && c === 'categoryId') {
+        const cur = r.categoryId ?? '';
+        const opts = [{ id: '', name: '(none)' }, ...cats];
+        if (cur && !cats.some(k => k.id === cur)) opts.push({ id: cur, name: `(missing: ${cur})` });
+        return `<select ${data}>${opts.map(k => `<option value="${Utils.escAttr(k.id)}"${k.id === cur ? ' selected' : ''}>${Utils.escH(k.name || k.id)}</option>`).join('')}</select>`;
+    }
+    const shown = c === 'editedDate' ? formatTableDate(r[c]) : String(r[c] ?? '');
+    return `<input ${TABLE_READONLY.has(c) ? 'readonly style="opacity:0.6;cursor:not-allowed"' : ''} value="${Utils.escAttr(shown)}" ${data}>`;
+}
 
 function renderTable(type) {
     const d = State.deck; if (!d) return;
     const q = (document.getElementById('table-search')?.value || '').toLowerCase();
     let rows = d[type] || [];
-    if (q) rows = rows.filter(r => JSON.stringify(r).toLowerCase().includes(q));
+    const cats = d.categories || [];
+    const catName = new Map(cats.map(k => [k.id, k.name]));
+    // Search what the table shows: category names and dates as displayed.
+    if (q) rows = rows.filter(r => (JSON.stringify(r) + ' ' + (catName.get(r.categoryId) || '') + ' ' + formatTableDate(r.editedDate)).toLowerCase().includes(q));
     const cols = TABLE_COLS[type] || [];
     const headEl = document.getElementById('table-head');
     if (headEl) {
-        headEl.innerHTML = '<tr><th>#</th>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr>';
+        headEl.innerHTML = '<tr><th>#</th>' + cols.map(c => `<th>${TABLE_HEADS[c] || c}</th>`).join('') + '</tr>';
     }
     const bodyEl = document.getElementById('table-body');
     if (bodyEl) {
-        bodyEl.innerHTML = rows.map((r, i) => `<tr onclick="selectTableRow(this,'${Utils.escJs(r.id)}')" data-id="${Utils.escAttr(r.id)}"><td>${i + 1}</td>${cols.map(c => `<td><input ${c === 'id' ? 'readonly style="opacity:0.6;cursor:not-allowed"' : ''} value="${Utils.escAttr(String(r[c] ?? ''))}" onchange="updateTableCell('${Utils.escJs(type)}','${Utils.escJs(r.id)}','${c}',this.value)"></td>`).join('')}</tr>`).join('') || `<tr><td colspan="${cols.length + 1}" style="text-align:center;color:#3a4060;padding:20px">No data</td></tr>`;
+        bodyEl.innerHTML = rows.map((r, i) => `<tr ${Utils.act('selectTableRow', r.id)}><td>${i + 1}</td>${cols.map(c => `<td>${tableCell(type, r, c, cats)}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${cols.length + 1}" style="text-align:center;color:#3a4060;padding:20px">No data</td></tr>`;
     }
 }
 
@@ -346,13 +399,18 @@ function selectTableRow(tr, id) {
 }
 
 function updateTableCell(type, id, col, val) {
-    if (col === 'id') return;
+    if (TABLE_READONLY.has(col)) return;
     const d = State.deck; if (!d) return;
     const r = (d[type] || []).find(x => x.id === id); if (!r) return;
     if (col === 'frequency') {
         r[col] = isNaN(val) || val === '' ? 0 : Number(val);
     } else {
         r[col] = val;
+    }
+    if (type === 'cards') {
+        r.editedDate = Utils.now();
+        const cell = typeof CSS !== 'undefined' && document.querySelector?.(`#table-body [data-cell="editedDate"][data-row="${CSS.escape(id)}"]`);
+        if (cell) cell.value = formatTableDate(r.editedDate);
     }
     save();
 }
@@ -385,7 +443,7 @@ function renderBundleView() {
     const cards = q ? d.cards.filter(c => c.front.toLowerCase().includes(q) || c.back.toLowerCase().includes(q)) : d.cards;
     const bCardsEl = document.getElementById('bv-cards');
     if (bCardsEl) {
-        bCardsEl.innerHTML = cards.map(c => `<div class="li${State.bvSelCards.has(c.id) ? ' sel' : ''}" onclick="toggleBvCard('${Utils.escJs(c.id)}')">${Utils.escH(c.front)}</div>`).join('') || '<div class="empty-msg">No cards</div>';
+        bCardsEl.innerHTML = cards.map(c => `<div class="li${State.bvSelCards.has(c.id) ? ' sel' : ''}" ${Utils.act('toggleBvCard', c.id)}>${Utils.escH(c.front)}</div>`).join('') || '<div class="empty-msg">No cards</div>';
     }
     const bSel = document.getElementById('bv-bundle-select');
     if (!bSel) return;
@@ -398,7 +456,7 @@ function renderBundleView() {
     if (bndCardsEl) {
         if (bundle) {
             const bcards = bundle.cardIds.map(id => d.cards.find(c => c.id === id)).filter(Boolean);
-            bndCardsEl.innerHTML = bcards.map(c => `<div class="li${State.bvSelBundleCards.has(c.id) ? ' sel' : ''}" onclick="toggleBvBundleCard('${Utils.escJs(c.id)}')">${Utils.escH(c.front)}</div>`).join('') || '<div class="empty-msg">Bundle is empty</div>';
+            bndCardsEl.innerHTML = bcards.map(c => `<div class="li${State.bvSelBundleCards.has(c.id) ? ' sel' : ''}" ${Utils.act('toggleBvBundleCard', c.id)}>${Utils.escH(c.front)}</div>`).join('') || '<div class="empty-msg">Bundle is empty</div>';
         } else {
             bndCardsEl.innerHTML = '<div class="empty-msg">Select a bundle</div>';
         }
@@ -510,7 +568,7 @@ function renderHelpContent(activeTab) {
         { id: 'links', label: '🔗 Direct Links' }
     ];
 
-    let body = `<div class="help-nav-tabs">` + tabs.map(t => `<button class="help-tab-btn${t.id === activeTab ? ' active' : ''}" onclick="switchHelpTab('${Utils.escJs(t.id)}')">${t.label}</button>`).join('') + `</div>`;
+    let body = `<div class="help-nav-tabs">` + tabs.map(t => `<button class="help-tab-btn${t.id === activeTab ? ' active' : ''}" ${Utils.act('switchHelpTab', t.id)}>${t.label}</button>`).join('') + `</div>`;
     
     if (activeTab === 'quickstart') {
         body += `
@@ -653,7 +711,8 @@ function restoreAthenazeDecks() {
     openModal(
         'Restore Athenaze Decks',
         '<p>This will reload all 16 Athenaze Book I chapter decks, the Master Deck, and the Authentic MDB database (580 cards). Any identical cards you already studied will preserve their study progress.</p>',
-        () => {
+        async () => {
+            try { await loadAthenazeData('mdb'); } catch (err) { console.warn(err.message); }
             const canonical = createAllAthenazeDecks();
             const existingById = new Map();
             for (const d of State.decks) {
@@ -686,15 +745,8 @@ function restoreAthenazeDecks() {
     );
 }
 
-function loadAuthenticMdbDeck() {
-    let d = State.decks.find(x => x.id === 'deck_athenaze_mdb_canonical' || (x.src && x.src.kind === 'athenaze_mdb'));
-    if (!d) {
-        d = typeof buildAthenazeMdbDeck === 'function' ? buildAthenazeMdbDeck() : null;
-        if (d) {
-            State.decks.push(d);
-            save();
-        }
-    }
+async function loadAuthenticMdbDeck() {
+    const d = await ensureAthenazeDeck('mdb');
     if (d) {
         if (typeof switchDeck === 'function') switchDeck(d.id);
         else {
@@ -708,15 +760,8 @@ function loadAuthenticMdbDeck() {
     }
 }
 
-function loadExtendedLexiconDeck() {
-    let d = State.decks.find(x => x.name && x.name.includes('Extended Lexicon'));
-    if (!d) {
-        d = typeof buildAthenazeExtendedDeck === 'function' ? buildAthenazeExtendedDeck() : null;
-        if (d) {
-            State.decks.push(d);
-            save();
-        }
-    }
+async function loadExtendedLexiconDeck() {
+    const d = await ensureAthenazeDeck('extended');
     if (d) {
         if (typeof switchDeck === 'function') switchDeck(d.id);
         else {
@@ -730,16 +775,18 @@ function loadExtendedLexiconDeck() {
     }
 }
 
-function downloadMdbDeckJson() {
-    if (typeof ATHENAZE_MDB_DECK !== 'undefined' && ATHENAZE_MDB_DECK) {
+async function downloadMdbDeckJson() {
+    try { await loadAthenazeData('mdb'); } catch (_) {}
+    if (athenazeDataLoaded('mdb')) {
         Utils.dlBlob(new Blob([JSON.stringify(ATHENAZE_MDB_DECK, null, 2)], { type: 'application/json' }), 'Athenaze_MDB_Complete_580.json');
     } else {
         alert('MDB dataset not loaded.');
     }
 }
 
-function downloadExtendedDeckJson() {
-    if (typeof ATHENAZE_EXTENDED_DECK !== 'undefined' && ATHENAZE_EXTENDED_DECK) {
+async function downloadExtendedDeckJson() {
+    try { await loadAthenazeData('extended'); } catch (_) {}
+    if (athenazeDataLoaded('extended')) {
         Utils.dlBlob(new Blob([JSON.stringify(ATHENAZE_EXTENDED_DECK, null, 2)], { type: 'application/json' }), 'Athenaze_Extended_1220.json');
     } else {
         alert('Extended dataset not loaded.');
@@ -779,8 +826,8 @@ function renderCurriculumLibraryContent() {
                 <input type="text" class="catalog-search-input" id="catalog-search" placeholder="Search textbooks (e.g. Mounce, Wheelock, Kelley, Dobson, French...)" value="${Utils.escAttr(_catalogSearchQuery)}" oninput="onCatalogSearch(this.value)">
                 <div class="row" style="gap:6px; flex-wrap:wrap;">
                     ${languages.map(lang => `
-                        <button class="btn btn-sm ${lang === _catalogFilterLang ? 'btn-primary' : 'btn-secondary'}" onclick="filterCatalogByLang('${Utils.escJs(lang)}')">
-                            ${lang === 'all' ? '🌐 All Languages' : lang}
+                        <button class="btn btn-sm ${lang === _catalogFilterLang ? 'btn-primary' : 'btn-secondary'}" ${Utils.act('filterCatalogByLang', lang)}>
+                            ${lang === 'all' ? '🌐 All Languages' : Utils.escH(lang)}
                         </button>
                     `).join('')}
                 </div>
@@ -807,10 +854,10 @@ function renderCurriculumLibraryContent() {
                                 ` : ''}
                             </div>
                             <div class="catalog-card-actions">
-                                <button class="btn btn-sm btn-secondary" onclick="downloadCatalogDeck('${Utils.escJs(d.id)}')" title="Download standalone JSON deck">
+                                <button class="btn btn-sm btn-secondary" ${Utils.act('downloadCatalogDeck', d.id)} title="Download standalone JSON deck">
                                     <i data-lucide="download"></i> JSON
                                 </button>
-                                <button class="btn btn-sm ${isLoaded ? 'btn-secondary' : 'btn-primary'}" onclick="loadCatalogDeck('${Utils.escJs(d.id)}')">
+                                <button class="btn btn-sm ${isLoaded ? 'btn-secondary' : 'btn-primary'}" ${Utils.act('loadCatalogDeck', d.id)}>
                                     <i data-lucide="${isLoaded ? 'check' : 'plus-circle'}"></i> ${isLoaded ? 'Switch To Deck' : 'Load Into App'}
                                 </button>
                             </div>
@@ -848,12 +895,13 @@ function filterCatalogByLang(lang) {
 }
 
 async function fetchDeckData(deckItem) {
-    // If deck is Athenaze MDB or Extended, we have them directly in global memory
-    if (deckItem.id === 'deck_athenaze_mdb_canonical' && typeof ATHENAZE_MDB_DECK !== 'undefined') {
-        return JSON.parse(JSON.stringify(ATHENAZE_MDB_DECK));
-    }
-    if (deckItem.id === 'deck_athenaze_extended_lexicon' && typeof ATHENAZE_EXTENDED_DECK !== 'undefined') {
-        return JSON.parse(JSON.stringify(ATHENAZE_EXTENDED_DECK));
+    // Athenaze MDB and Extended ship as scripts too, which also load from file://
+    const kind = { deck_athenaze_mdb_canonical: 'mdb', deck_athenaze_extended_lexicon: 'extended' }[deckItem.id];
+    if (kind) {
+        try {
+            await loadAthenazeData(kind);
+            return kind === 'mdb' ? buildAthenazeMdbDeck() : buildAthenazeExtendedDeck();
+        } catch (_) { /* fall back to the JSON file */ }
     }
     const resp = await fetch(deckItem.file);
     if (!resp.ok) throw new Error(`HTTP error ${resp.status}`);
