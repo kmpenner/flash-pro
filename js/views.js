@@ -26,6 +26,7 @@ function updateThemeButton() {
     const icon = document.getElementById('theme-icon');
     if (btn) {
         btn.title = `Theme: ${t} (click to change)`;
+        if (btn.setAttribute) btn.setAttribute('aria-label', btn.title);
         const label = btn.querySelector ? btn.querySelector('.theme-label') : null;
         if (label) label.textContent = t;
     }
