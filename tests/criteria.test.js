@@ -249,9 +249,9 @@ test('table rows and cells with odd ids select and save', () => {
     e.run(`for (const id of __ids) { const c = mkCard('w', 'g'); c.id = id; State.deck.cards.push(c); }
            renderTable('cards');`);
     const html = e.document.getElementById('table-body').innerHTML;
-    const allowed = new Set(['tag', 'data-act', 'data-id', 'value', 'readonly', 'style', 'data-table', 'data-row', 'data-cell']);
+    const allowed = new Set(['tag', 'data-act', 'data-id', 'value', 'readonly', 'style', 'data-table', 'data-row', 'data-cell', 'selected']);
     for (const t of parseElements(html)) {
-        assert.ok(['tr', 'td', 'input'].includes(t.tag), t.tag);
+        assert.ok(['tr', 'td', 'input', 'select', 'option'].includes(t.tag), t.tag);
         for (const k of Object.keys(t)) assert.ok(allowed.has(k), `unexpected attribute ${k}`);
     }
     // Each id reads back intact from the row, its cells and the id cell's text box.

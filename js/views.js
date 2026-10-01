@@ -349,20 +349,46 @@ const TABLE_COLS = {
     criteria: ['id', 'name', 'logic'],
     bundles: ['id', 'name'],
 };
+const TABLE_HEADS = { id: 'ID', front: 'Front', back: 'Back', categoryId: 'Category', frequency: 'Frequency', editedDate: 'Edited', name: 'Name', logic: 'Rule' };
+// Columns the app sets itself; shown but not editable.
+const TABLE_READONLY = new Set(['id', 'editedDate']);
+
+// A timestamp as local "YYYY-MM-DD HH:MM", or '' when missing.
+function formatTableDate(ms) {
+    const n = Number(ms);
+    if (!ms || !Number.isFinite(n)) return '';
+    const t = new Date(n), p = x => String(x).padStart(2, '0');
+    return `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())} ${p(t.getHours())}:${p(t.getMinutes())}`;
+}
+
+function tableCell(type, r, c, cats) {
+    const data = `data-table="${Utils.escAttr(type)}" data-row="${Utils.escAttr(r.id)}" data-cell="${c}"`;
+    if (type === 'cards' && c === 'categoryId') {
+        const cur = r.categoryId ?? '';
+        const opts = [{ id: '', name: '(none)' }, ...cats];
+        if (cur && !cats.some(k => k.id === cur)) opts.push({ id: cur, name: `(missing: ${cur})` });
+        return `<select ${data}>${opts.map(k => `<option value="${Utils.escAttr(k.id)}"${k.id === cur ? ' selected' : ''}>${Utils.escH(k.name || k.id)}</option>`).join('')}</select>`;
+    }
+    const shown = c === 'editedDate' ? formatTableDate(r[c]) : String(r[c] ?? '');
+    return `<input ${TABLE_READONLY.has(c) ? 'readonly style="opacity:0.6;cursor:not-allowed"' : ''} value="${Utils.escAttr(shown)}" ${data}>`;
+}
 
 function renderTable(type) {
     const d = State.deck; if (!d) return;
     const q = (document.getElementById('table-search')?.value || '').toLowerCase();
     let rows = d[type] || [];
-    if (q) rows = rows.filter(r => JSON.stringify(r).toLowerCase().includes(q));
+    const cats = d.categories || [];
+    const catName = new Map(cats.map(k => [k.id, k.name]));
+    // Search what the table shows: category names and dates as displayed.
+    if (q) rows = rows.filter(r => (JSON.stringify(r) + ' ' + (catName.get(r.categoryId) || '') + ' ' + formatTableDate(r.editedDate)).toLowerCase().includes(q));
     const cols = TABLE_COLS[type] || [];
     const headEl = document.getElementById('table-head');
     if (headEl) {
-        headEl.innerHTML = '<tr><th>#</th>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr>';
+        headEl.innerHTML = '<tr><th>#</th>' + cols.map(c => `<th>${TABLE_HEADS[c] || c}</th>`).join('') + '</tr>';
     }
     const bodyEl = document.getElementById('table-body');
     if (bodyEl) {
-        bodyEl.innerHTML = rows.map((r, i) => `<tr ${Utils.act('selectTableRow', r.id)}><td>${i + 1}</td>${cols.map(c => `<td><input ${c === 'id' ? 'readonly style="opacity:0.6;cursor:not-allowed"' : ''} value="${Utils.escAttr(String(r[c] ?? ''))}" data-table="${Utils.escH(type)}" data-row="${Utils.escH(r.id)}" data-cell="${c}"></td>`).join('')}</tr>`).join('') || `<tr><td colspan="${cols.length + 1}" style="text-align:center;color:#3a4060;padding:20px">No data</td></tr>`;
+        bodyEl.innerHTML = rows.map((r, i) => `<tr ${Utils.act('selectTableRow', r.id)}><td>${i + 1}</td>${cols.map(c => `<td>${tableCell(type, r, c, cats)}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${cols.length + 1}" style="text-align:center;color:#3a4060;padding:20px">No data</td></tr>`;
     }
 }
 
@@ -373,13 +399,18 @@ function selectTableRow(tr, id) {
 }
 
 function updateTableCell(type, id, col, val) {
-    if (col === 'id') return;
+    if (TABLE_READONLY.has(col)) return;
     const d = State.deck; if (!d) return;
     const r = (d[type] || []).find(x => x.id === id); if (!r) return;
     if (col === 'frequency') {
         r[col] = isNaN(val) || val === '' ? 0 : Number(val);
     } else {
         r[col] = val;
+    }
+    if (type === 'cards') {
+        r.editedDate = Utils.now();
+        const cell = typeof CSS !== 'undefined' && document.querySelector?.(`#table-body [data-cell="editedDate"][data-row="${CSS.escape(id)}"]`);
+        if (cell) cell.value = formatTableDate(r.editedDate);
     }
     save();
 }
