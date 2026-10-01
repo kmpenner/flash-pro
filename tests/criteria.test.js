@@ -131,10 +131,20 @@ test('rules cannot run code', () => {
         'Frequency[0]',
         '[].map',
     ];
+    // Names that are not metrics read card fields, so `globalThis.pwned = 1`
+    // is a harmless comparison with a field no card has. Anything that would
+    // call, assign or index is a syntax error.
+    const inert = new Set(['globalThis.pwned = 1', '(pwned = 1)', '__proto__']);
     for (const rule of attacks) {
-        assert.throws(() => e.run(`evaluateCriteria(${JSON.stringify(rule)}, __card, 'fb', true)`), undefined, rule);
+        if (!inert.has(rule)) assert.throws(() => e.run(`evaluateCriteria(${JSON.stringify(rule)}, __card, 'fb', true)`), undefined, rule);
         assert.strictEqual(e.run(`evaluateCriteria(${JSON.stringify(rule)}, __card, 'fb')`), false, rule);
     }
+    e.ctx.__card = Object.assign(Object.create({ inherited: 1 }), { frequency: 1 });
+    // Field reads see only the card's own data, never inherited properties.
+    for (const p of ['inherited', 'constructor', '__proto__', '__proto__.inherited', 'frequency.constructor', 'toString']) {
+        assert.strictEqual(e.run(`criteriaField(__card, ${JSON.stringify(p.split('.'))})`), undefined, p);
+    }
+    assert.strictEqual(e.run(`evaluateCriteria('inherited = 1', __card, 'fb', true)`), false);
     assert.strictEqual(e.run('typeof pwned'), 'undefined');
 });
 

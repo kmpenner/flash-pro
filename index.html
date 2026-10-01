@@ -479,13 +479,16 @@
                     <div class="col" style="flex: 1;">
                         <div class="panel-title">Constants</div>
                         <code style="display:block; padding: 12px; background: var(--bg-input); line-height: 2;">
-                            Now, DayMs, Frequency, TimesRight, TimesWrong, TimesRightSinceWrong, DateLastRight, DateLastWrong, DaysRightSinceWrong
+                            Now, DayMs, Frequency, TimesRight, TimesWrong, TimesRightSinceWrong, DateLastRight, DateLastWrong, DaysRightSinceWrong<br>
+                            Any card field: Front, Back, Category, or nested ones such as morph.tense
                         </code>
                     </div>
                     <div class="col" style="flex: 1;">
                         <div class="panel-title">Operations</div>
                         <code style="display:block; padding: 12px; background: var(--bg-input); line-height: 2;">
-                            AND, OR, NOT, ( ), ==, !=, >=, <=, >, <, +, -, *, /, %
+                            AND, OR, NOT, ( ), = (==), &lt;&gt; (!=), &gt;=, &lt;=, &gt;, &lt;, +, -, *, /, %<br>
+                            'text', LIKE 'λ%', ~= (ignores accents), IN (a, b), BETWEEN a AND b<br>
+                            ORDER BY Frequency DESC, LIMIT 20
                         </code>
                     </div>
                 </div>
