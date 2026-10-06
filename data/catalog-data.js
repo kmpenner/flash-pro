@@ -262,6 +262,17 @@ window.FLASH_PRO_CATALOG = [
     "file": "data/ancient_chronology.json",
     "sampleFront": "Saul (Israel)",
     "sampleBack": "1025-1005 BCE"
+  },
+  {
+    "id": "deck_syriac_yukhannan",
+    "title": "Syriac: The Acts of Mar Yukhannan",
+    "language": "Syriac",
+    "category": "Semitic Languages",
+    "totalCards": 419,
+    "totalBundles": 13,
+    "file": "data/syriac_yukhannan.json",
+    "sampleFront": "ܡܓܠܬܐ",
+    "sampleBack": "scroll — megalltā (noun, f)"
   }
 ];
 

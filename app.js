@@ -109,6 +109,18 @@ function init() {
                 // Its data is still loading: switch to it once it arrives.
                 pendingDeck = deckParam === 'mdb' ? mdbDeckReady : ensureAthenazeDeck('extended');
             }
+        } else if (deckParam && (window.FLASH_PRO_CATALOG || []).some(c => c.id === deckParam)) {
+            // Any catalog deck by id, optionally narrowed to one bundle: ?deck=<id>&bundle=<name>
+            const bundleParam = params.get('bundle');
+            pendingDeck = loadCatalogDeck(deckParam).then(() => {
+                const d = State.deck;
+                if (d && bundleParam) {
+                    const b = d.bundles.find(x => x.name === bundleParam) || d.bundles.find(x => x.name.startsWith(bundleParam));
+                    if (b) { State.selBundleIds.clear(); State.selBundleIds.add(b.id); }
+                }
+                return null;
+            });
+            pendingDeck.then(() => { renderAll(); gatherCards(); });
         }
         const viewParam = params.get('view');
         if (viewParam && typeof showView === 'function') {
