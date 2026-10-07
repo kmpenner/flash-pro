@@ -42,6 +42,13 @@ When importing from text/spreadsheets:
 3.  **Link** each column to a card field (e.g., Column 1 → Front, Column 2 → Back).
 4.  Specify a default **Category** if needed, then finalize the import.
 
+### 📚 Adding a catalog deck
+Library decks are read-only JSON files in `data/` (copy the shape of `data/johns_aramaic.json`: `categories`, `bundles` with `cardIds`, `criteria`, and `fb`/`bf` stats on every card).
+1. Set the deck's top-level `id` to its catalog id (e.g. `deck_syriac_yukhannan`). `loadCatalogDeck` matches on it, so a mismatch loads duplicates.
+2. Add the same entry to **both** `data/catalog.json` and `data/catalog-data.js`. The app reads the `.js` file, and the `.json` file is the canonical list.
+3. Link to it with `?deck=<catalogId>&bundle=<bundle name or prefix>&drill=1`.
+4. For a non-Latin script, add its Google Font to the font link in `index.html` and to the `body` font stack in `style.css`. Don't use `headTmpl`/`frontTmpl` for this: a template renders the card in an iframe that shows as faint text on white in dark mode.
+
 ## 💻 Technical Stack
 
 - **Core Logic**: Vanilla JavaScript (ES6+)
