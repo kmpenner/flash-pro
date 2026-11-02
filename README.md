@@ -69,3 +69,12 @@ The tests load the real browser scripts from `js/` into an isolated context, and
 ## ⚖️ License
 
 MIT License. Feel free to use and adapt this for your personal learning needs.
+
+## 🧑‍🎓 Learning Students' Names (X-Reports)
+
+`scripts/xreports_classlist.py` pulls a class list with photos from X-Reports (data.stfx.ca, via the signed-in CDP Chrome on port 9222), asks which of your current-year courses to use, and writes `~/Downloads/names_<COURSE>_<term>.flashpro.json`. Load it with **Load deck file**; each card's front is the student's photo and its back is the name, so drill **Front → Back** to see the face and recall the name.
+
+```bash
+python3 scripts/xreports_classlist.py            # pick from your courses this year
+python3 scripts/xreports_classlist.py --crn 59352 --term 202710
+```

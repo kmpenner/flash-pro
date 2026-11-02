@@ -36,7 +36,7 @@ function renderDrillCard() {
     const d = State.deck;
     const settings = d?.settings || {};
     const frontText = c._dir === 'fb' ? c.front : c.back;
-    renderCardFace('drill-front', frontText, settings.frontTmpl || '', settings.headTmpl || '', settings.fontSize || 28, 'front');
+    renderCardFace('drill-front', frontText, settings.frontTmpl || '', settings.headTmpl || '', settings.fontSize || 28, 'front', c._dir === 'fb' ? c.frontImg : c.backImg);
     const backEl = document.getElementById('drill-back');
     if (backEl) backEl.style.display = 'none';
     s.flipped = false;
@@ -47,10 +47,19 @@ function renderDrillCard() {
     updateDrillStats();
 }
 
-function renderCardFace(elId, text, tmpl, head, fontSize, side) {
+// Card photos (e.g. class-list decks) are inline data: URIs in card.frontImg / card.backImg.
+const SAFE_IMG = /^data:image\/(jpeg|png|gif|webp);base64,[A-Za-z0-9+/=]+$/;
+
+function renderCardFace(elId, text, tmpl, head, fontSize, side, img) {
     const el = document.getElementById(elId);
     if (!el) return;
-    if (tmpl) {
+    if (img && SAFE_IMG.test(img)) {
+        el.textContent = '';
+        const im = document.createElement('img');
+        im.src = img; im.alt = '';
+        im.style.cssText = 'max-width:100%;max-height:260px;object-fit:contain';
+        el.appendChild(im);
+    } else if (tmpl) {
         const faceColor = (getComputedStyle(document.documentElement).getPropertyValue('--card-face-text') || '#dde1ec').trim();
         const html = `<html><head>${head}<style>body{margin:8px;color:${faceColor};font-size:${fontSize}px;display:flex;align-items:center;justify-content:center;min-height:80px;word-break:break-word;text-align:center;}*{box-sizing:border-box;}</style></head><body>${tmpl.replace(/\{\{front\}\}/g, Utils.escH(text)).replace(/\{\{back\}\}/g, Utils.escH(text))}</body></html>`;
         el.innerHTML = `<iframe srcdoc="${Utils.escAttr(html)}" sandbox="" style="width:100%;height:100%;min-height:140px;border:none;background:transparent"></iframe>`;
@@ -67,7 +76,7 @@ function flipCard() {
     const settings = d?.settings || {};
     const backText = c._dir === 'fb' ? c.back : c.front;
     const backEl = document.getElementById('drill-back');
-    renderCardFace('drill-back', backText, settings.backTmpl || '', settings.headTmpl || '', settings.fontSize || 22, 'back');
+    renderCardFace('drill-back', backText, settings.backTmpl || '', settings.headTmpl || '', settings.fontSize || 22, 'back', c._dir === 'fb' ? c.backImg : c.frontImg);
     if (backEl) backEl.style.display = 'flex';
     s.flipped = true;
     const flipBtns = document.getElementById('drill-btns-flip');
