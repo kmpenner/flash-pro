@@ -72,9 +72,6 @@ function init() {
             sr.name = 'Spaced Repetition';
             sr.logic = '(NOW - LastRightTime) > (LastRightTime - LastWrongTime)';
         }
-        if (!State.selCriteriaId && State.deck.criteria.length) {
-            State.selCriteriaId = (sr || State.deck.criteria[0]).id;
-        }
     }
 
     // Check for URL query parameters (e.g. ?chapter=1a&drill=1 or ?ch=2b&limit=10)

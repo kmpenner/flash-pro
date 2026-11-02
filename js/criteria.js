@@ -302,7 +302,11 @@ function renderSelectView() {
     if (!d.criteria || !d.bundles || !d.categories) return; // stub deck: body still loading
     const cl = document.getElementById('criteria-list');
     if (cl) {
-        cl.innerHTML = d.criteria.map(c => `<div class="li${State.selCriteriaId === c.id ? ' sel' : ''}" ${Utils.act('selectCriteria', c.id)}>${Utils.escH(c.name)}</div>`).join('') || '<div class="empty-msg">No criteria</div>';
+        // "All Cards" (no rule) is the default and how a selected rule is cleared.
+        // Stored empty-logic rules (many decks ship one named "All Cards") are the same thing.
+        const rules = d.criteria.filter(c => (c.logic || '').trim());
+        const selId = rules.some(c => c.id === State.selCriteriaId) ? State.selCriteriaId : '';
+        cl.innerHTML = [{ id: '', name: 'All Cards' }, ...rules].map(c => `<div class="li${selId === c.id ? ' sel' : ''}" ${Utils.act('selectCriteria', c.id)}>${Utils.escH(c.name)}</div>`).join('');
     }
     const bl = document.getElementById('bundle-list');
     if (bl) {
@@ -532,7 +536,7 @@ function addDrillPreset(idx) {
         State.selCriteriaId = newC.id;
         save();
     }
-    renderCriteriaView();
+    selectCritMgr(State.selCriteriaId); // show its logic in the rule manager
     renderSelectView();
     selectCriteria(State.selCriteriaId);
     gatherCards();
