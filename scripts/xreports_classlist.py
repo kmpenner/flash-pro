@@ -134,7 +134,8 @@ async def main():
         defs = await param_defs(tab, term)
     courses = my_courses(defs)
     if a.crn:
-        pick = next((c for c in courses if c['Value'] == a.crn), {'Label': a.crn, 'Value': a.crn})
+        every = defs['P_CRN'].get('ValidValues') or []  # --crn may name a colleague's section
+        pick = next((c for c in every if c['Value'] == a.crn), {'Label': a.crn, 'Value': a.crn})
     else:
         print(f'Courses for term {term}:')
         for i, c in enumerate(courses, 1):
