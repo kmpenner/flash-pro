@@ -443,7 +443,7 @@ function renderBundleView() {
     const cards = q ? d.cards.filter(c => c.front.toLowerCase().includes(q) || c.back.toLowerCase().includes(q)) : d.cards;
     const bCardsEl = document.getElementById('bv-cards');
     if (bCardsEl) {
-        bCardsEl.innerHTML = cards.map(c => `<div class="li${State.bvSelCards.has(c.id) ? ' sel' : ''}" ${Utils.act('toggleBvCard', c.id)}>${Utils.escH(c.front)}</div>`).join('') || '<div class="empty-msg">No cards</div>';
+        bCardsEl.innerHTML = cards.map(c => `<div class="li${State.bvSelCards.has(c.id) ? ' sel' : ''}" ${Utils.act('toggleBvCard', c.id)}>${Utils.escH(c.front || c.back)}</div>`).join('') || '<div class="empty-msg">No cards</div>';
     }
     const bSel = document.getElementById('bv-bundle-select');
     if (!bSel) return;
@@ -456,7 +456,7 @@ function renderBundleView() {
     if (bndCardsEl) {
         if (bundle) {
             const bcards = bundle.cardIds.map(id => d.cards.find(c => c.id === id)).filter(Boolean);
-            bndCardsEl.innerHTML = bcards.map(c => `<div class="li${State.bvSelBundleCards.has(c.id) ? ' sel' : ''}" ${Utils.act('toggleBvBundleCard', c.id)}>${Utils.escH(c.front)}</div>`).join('') || '<div class="empty-msg">Bundle is empty</div>';
+            bndCardsEl.innerHTML = bcards.map(c => `<div class="li${State.bvSelBundleCards.has(c.id) ? ' sel' : ''}" ${Utils.act('toggleBvBundleCard', c.id)}>${Utils.escH(c.front || c.back)}</div>`).join('') || '<div class="empty-msg">Bundle is empty</div>';
         } else {
             bndCardsEl.innerHTML = '<div class="empty-msg">Select a bundle</div>';
         }

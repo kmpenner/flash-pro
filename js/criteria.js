@@ -371,7 +371,7 @@ function renderGatheredList() {
         if (badge) badge.textContent = '0';
         return;
     }
-    gl.innerHTML = State.gatheredCards.map((c, i) => `<div class="li">${i + 1}. ${Utils.escH(c.front)}</div>`).join('');
+    gl.innerHTML = State.gatheredCards.map((c, i) => `<div class="li">${i + 1}. ${Utils.escH(c.front || c.back)}</div>`).join('');
     if (badge) badge.textContent = State.gatheredCards.length;
 }
 
