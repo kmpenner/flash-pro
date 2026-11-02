@@ -464,7 +464,14 @@ function gatherCards() {
     if (pred.limit != null) matched = matched.slice(0, pred.limit);
 
     const max = getSessionLimit();
-    State.gatheredCards = matched.slice(0, max);
+    const queue = matched.slice(0, max);
+    if (getShuffleSession()) {
+        for (let i = queue.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [queue[i], queue[j]] = [queue[j], queue[i]];
+        }
+    }
+    State.gatheredCards = queue;
     renderGatheredList();
     const gc = document.getElementById('gathered-count');
     if (gc) gc.textContent = `(${matched.length} matched, queueing ${State.gatheredCards.length})`;

@@ -503,6 +503,16 @@ function getSessionLimit() {
     return isNaN(val) || val <= 0 ? 10 : val;
 }
 
+// On by default: the sort picks which cards make the session, then the session is shown shuffled.
+function getShuffleSession() {
+    try { return localStorage.getItem('flashpro_shuffle_session') !== '0'; } catch (_) { return true; }
+}
+
+function setShuffleSession(on) {
+    try { localStorage.setItem('flashpro_shuffle_session', on ? '1' : '0'); } catch (_) {}
+    if (typeof gatherCards === 'function') gatherCards();
+}
+
 function setSessionLimit(val) {
     const n = parseInt(val, 10);
     const limit = isNaN(n) || n <= 0 ? 10 : n;

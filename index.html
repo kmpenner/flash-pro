@@ -173,6 +173,7 @@
                 <div class="col" style="gap:2px">
                     <label class="flab">Session Limit</label>
                     <input type="number" id="max-cards" value="10" min="1" max="500" style="width:80px" onchange="setSessionLimit(this.value)">
+                    <label class="flab" title="Sort picks which cards make the session; this shuffles the order they are shown in"><input type="checkbox" id="shuffle-session" checked onchange="setShuffleSession(this.checked)"> Shuffle session</label>
                 </div>
                 <div class="col" style="gap:2px">
                     <label class="flab">Sort By</label>

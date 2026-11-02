@@ -63,6 +63,8 @@ function init() {
     if (elMax) elMax.value = savedLimit;
     const elDrillMax = document.getElementById('drill-max-cards');
     if (elDrillMax) elDrillMax.value = savedLimit;
+    const elShuffle = document.getElementById('shuffle-session');
+    if (elShuffle) elShuffle.checked = getShuffleSession();
 
     if (State.deck && State.deck.criteria) {
         const sr = State.deck.criteria.find(c => c.name === 'Spaced Repetition' || c.name === 'Elapsed Time');
