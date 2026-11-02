@@ -24,14 +24,25 @@ import json
 import re
 import sys
 import time
+from io import BytesIO
 from pathlib import Path
 
 sys.path.insert(0, '/home/kmpenner/projects/RELS/shared/skills/stfx-registrar-reports/scripts')
 from registrar_client import cdp_eval, fetch_report_data, find_target_tab  # noqa: E402
+from PIL import Image  # noqa: E402
 
 REPORT = 'FACULTY/Faculty_Class_List_Lookup'
 PARAMS_URL = "https://data.stfx.ca/reports/api/v2.0/Reports(Path='/FACULTY/Faculty_Class_List_Lookup')/ParameterDefinitions"
 DEFAULT_DATE = 946684800000
+PHOTO_PX = 240  # longest side; keeps ~10 KB/photo so a big class fits in the browser's ~5 MB storage
+
+
+def shrink(raw):
+    im = Image.open(BytesIO(raw)).convert('RGB')
+    im.thumbnail((PHOTO_PX, PHOTO_PX))
+    buf = BytesIO()
+    im.save(buf, 'JPEG', quality=80)
+    return 'data:image/jpeg;base64,' + base64.b64encode(buf.getvalue()).decode()
 
 
 async def param_defs(tab, term=None):
@@ -68,10 +79,11 @@ def parse_mhtml(data):
             page = part.get_payload(decode=True).decode('utf-8', 'replace')
         elif ct.startswith('image/'):
             cid = (part['Content-ID'] or '').strip('<>')
-            images[cid] = f'data:{ct};base64,' + base64.b64encode(part.get_payload(decode=True)).decode()
-    # Each roster row: <IMG SRC="cid:..."/> then the name cell (Last, First)
+            images[cid] = shrink(part.get_payload(decode=True))
+    # Each roster row: <IMG SRC="cid:..."/> then the name cell (Last, First).
+    # SSRS wraps long lines inside tags, so "<DIV\n class=..." occurs.
     students = []
-    for m in re.finditer(r'SRC="cid:([0-9a-f]+)".*?<DIV class="[^"]*">([^<]+)</DIV>', page, re.S):
+    for m in re.finditer(r'SRC="cid:([0-9a-f]+)".*?<DIV\s+class="[^"]*">([^<]+)</DIV>', page, re.S):
         cid, name = m.group(1), html.unescape(m.group(2)).strip()
         if cid in images:
             students.append((name, images[cid]))
